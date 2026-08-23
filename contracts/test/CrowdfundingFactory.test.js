@@ -2,7 +2,7 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("CrowdfundingFactory", function () {
-  let CrowdfundingFactory;
+  let Factory;
   let factory;
   let creator1;
   let creator2;
@@ -12,11 +12,24 @@ describe("CrowdfundingFactory", function () {
   const DURATION = 30 * 24 * 60 * 60; // 30 days
   const IPFS_HASH = "QmTest123456789";
 
+  async function createCampaign(signer, goal = GOAL, duration = DURATION, hash = IPFS_HASH) {
+    const address = await factory.connect(signer).createCampaign.staticCall(goal, duration, hash);
+    await factory.connect(signer).createCampaign(goal, duration, hash);
+    return address;
+  }
+
   beforeEach(async function () {
     [creator1, creator2, contributor] = await ethers.getSigners();
 
-    CrowdfundingFactory = await ethers.getContractFactory("CrowdfundingFactory");
-    factory = await CrowdfundingFactory.deploy();
+    Factory = await ethers.getContractFactory("CrowdfundingFactory");
+    factory = await Factory.deploy();
+  });
+
+  describe("Deployment", function () {
+    it("Should deploy a campaign implementation", async function () {
+      const implementation = await factory.campaignImplementation();
+      expect(implementation).to.not.equal(ethers.ZeroAddress);
+    });
   });
 
   describe("Campaign Creation", function () {
@@ -42,6 +55,34 @@ describe("CrowdfundingFactory", function () {
       expect(parsedEvent.args.ipfsHash).to.equal(IPFS_HASH);
     });
 
+    it("Should deploy campaigns as deterministic minimal proxies", async function () {
+      const predicted = await factory.predictNextCampaignAddress();
+      const actual = await createCampaign(creator1);
+
+      expect(actual).to.equal(predicted);
+    });
+
+    it("Should predict subsequent campaign addresses correctly", async function () {
+      const predicted1 = await factory.predictNextCampaignAddress();
+      const campaign1 = await createCampaign(creator1);
+
+      expect(campaign1).to.equal(predicted1);
+
+      const predicted2 = await factory.predictNextCampaignAddress();
+      const campaign2 = await createCampaign(creator1);
+
+      expect(campaign2).to.equal(predicted2);
+      expect(campaign1).to.not.equal(campaign2);
+    });
+
+    it("Should deploy cheap clones (EIP-1167 runtime size)", async function () {
+      const campaignAddress = await createCampaign(creator1);
+      const code = await ethers.provider.getCode(campaignAddress);
+
+      // EIP-1167 minimal proxy runtime bytecode is 45 bytes
+      expect(code.length).to.equal(2 + 45 * 2);
+    });
+
     it("Should increment campaign count", async function () {
       expect(await factory.getCampaignCount()).to.equal(0);
 
@@ -65,20 +106,7 @@ describe("CrowdfundingFactory", function () {
     });
 
     it("Should mark campaign as valid", async function () {
-      const tx = await factory.connect(creator1).createCampaign(GOAL, DURATION, IPFS_HASH);
-      const receipt = await tx.wait();
-
-      const event = receipt.logs.find(log => {
-        try {
-          const parsed = factory.interface.parseLog(log);
-          return parsed.name === "CampaignCreated";
-        } catch {
-          return false;
-        }
-      });
-
-      const parsedEvent = factory.interface.parseLog(event);
-      const campaignAddress = parsedEvent.args.campaignAddress;
+      const campaignAddress = await createCampaign(creator1);
 
       expect(await factory.isCampaign(campaignAddress)).to.be.true;
       expect(await factory.verifyCampaign(campaignAddress)).to.be.true;
@@ -87,13 +115,13 @@ describe("CrowdfundingFactory", function () {
     it("Should revert with zero goal", async function () {
       await expect(
         factory.connect(creator1).createCampaign(0, DURATION, IPFS_HASH)
-      ).to.be.revertedWith("Goal must be greater than 0");
+      ).to.be.revertedWithCustomError(factory, "InvalidGoal");
     });
 
     it("Should revert with zero duration", async function () {
       await expect(
         factory.connect(creator1).createCampaign(GOAL, 0, IPFS_HASH)
-      ).to.be.revertedWith("Duration must be greater than 0");
+      ).to.be.revertedWithCustomError(factory, "InvalidDuration");
     });
 
     it("Should revert with duration too long", async function () {
@@ -101,44 +129,23 @@ describe("CrowdfundingFactory", function () {
 
       await expect(
         factory.connect(creator1).createCampaign(GOAL, tooLongDuration, IPFS_HASH)
-      ).to.be.revertedWith("Duration too long (max 365 days)");
+      ).to.be.revertedWithCustomError(factory, "DurationTooLong");
     });
 
     it("Should revert with empty IPFS hash", async function () {
       await expect(
         factory.connect(creator1).createCampaign(GOAL, DURATION, "")
-      ).to.be.revertedWith("IPFS hash cannot be empty");
+      ).to.be.revertedWithCustomError(factory, "EmptyIPFSHash");
     });
 
     it("Should deploy independent campaign contracts", async function () {
-      const tx1 = await factory.connect(creator1).createCampaign(GOAL, DURATION, IPFS_HASH);
-      const receipt1 = await tx1.wait();
-
-      const tx2 = await factory.connect(creator1).createCampaign(
+      const campaign1Address = await createCampaign(creator1);
+      const campaign2Address = await createCampaign(
+        creator1,
         ethers.parseEther("20"),
         DURATION,
         "QmDifferentHash"
       );
-      const receipt2 = await tx2.wait();
-
-      const event1 = receipt1.logs.find(log => {
-        try {
-          return factory.interface.parseLog(log).name === "CampaignCreated";
-        } catch {
-          return false;
-        }
-      });
-
-      const event2 = receipt2.logs.find(log => {
-        try {
-          return factory.interface.parseLog(log).name === "CampaignCreated";
-        } catch {
-          return false;
-        }
-      });
-
-      const campaign1Address = factory.interface.parseLog(event1).args.campaignAddress;
-      const campaign2Address = factory.interface.parseLog(event2).args.campaignAddress;
 
       expect(campaign1Address).to.not.equal(campaign2Address);
 
@@ -149,6 +156,21 @@ describe("CrowdfundingFactory", function () {
 
       expect(await campaign1.goal()).to.equal(GOAL);
       expect(await campaign2.goal()).to.equal(ethers.parseEther("20"));
+    });
+
+    it("Should share a single implementation across all campaigns", async function () {
+      const implementation = await factory.campaignImplementation();
+
+      const campaign1Address = await createCampaign(creator1);
+      const campaign2Address = await createCampaign(creator2);
+
+      // EIP-1167 proxies hardcode the implementation address in bytecode
+      const code1 = await ethers.provider.getCode(campaign1Address);
+      const code2 = await ethers.provider.getCode(campaign2Address);
+
+      const implSlot = implementation.toLowerCase().slice(2).padStart(40, "0");
+      expect(code1.toLowerCase()).to.contain(implSlot);
+      expect(code2.toLowerCase()).to.contain(implSlot);
     });
   });
 
@@ -189,7 +211,7 @@ describe("CrowdfundingFactory", function () {
       // Start beyond array length
       await expect(
         factory.getCampaignsPaginated(10, 5)
-      ).to.be.revertedWith("Start index out of bounds");
+      ).to.be.revertedWithCustomError(factory, "StartIndexOutOfBounds");
 
       // Limit beyond array length
       const result = await factory.getCampaignsPaginated(2, 10);
@@ -199,7 +221,13 @@ describe("CrowdfundingFactory", function () {
     it("Should return campaign details in bulk", async function () {
       const allCampaigns = await factory.getAllCampaigns();
 
-      const bulkDetails = await factory.getCampaignDetailsBulk(allCampaigns);
+      // Low-level call: avoids ethers v6 decoding quirk with array args + named outputs
+      const data = factory.interface.encodeFunctionData("getCampaignDetailsBulk", [allCampaigns]);
+      const result = await ethers.provider.call({
+        to: await factory.getAddress(),
+        data,
+      });
+      const bulkDetails = factory.interface.decodeFunctionResult("getCampaignDetailsBulk", result);
 
       expect(bulkDetails.creators.length).to.equal(3);
       expect(bulkDetails.goals.length).to.equal(3);
@@ -207,34 +235,34 @@ describe("CrowdfundingFactory", function () {
       expect(bulkDetails.creators[1]).to.equal(creator2.address);
       expect(bulkDetails.goals[0]).to.equal(GOAL);
     });
+
+    it("Should return zeroed details for invalid campaign addresses", async function () {
+      const data = factory.interface.encodeFunctionData("getCampaignDetailsBulk", [[creator1.address]]);
+      const result = await ethers.provider.call({
+        to: await factory.getAddress(),
+        data,
+      });
+      const bulkDetails = factory.interface.decodeFunctionResult("getCampaignDetailsBulk", result);
+
+      expect(bulkDetails.creators[0]).to.equal(ethers.ZeroAddress);
+      expect(bulkDetails.goals[0]).to.equal(0);
+    });
   });
 
   describe("Active Campaigns", function () {
     it("Should return only active campaigns", async function () {
-      // Create campaigns
-      const tx1 = await factory.connect(creator1).createCampaign(
+      const campaign1Address = await createCampaign(
+        creator1,
         ethers.parseEther("1"),
         DURATION,
         IPFS_HASH
       );
-      const receipt1 = await tx1.wait();
 
       await factory.connect(creator1).createCampaign(GOAL, DURATION, IPFS_HASH);
 
-      // Get campaign address from event
-      const event = receipt1.logs.find(log => {
-        try {
-          return factory.interface.parseLog(log).name === "CampaignCreated";
-        } catch {
-          return false;
-        }
-      });
-
-      const campaignAddress = factory.interface.parseLog(event).args.campaignAddress;
-
       // Contribute to first campaign to reach goal
       const Campaign = await ethers.getContractFactory("Campaign");
-      const campaign1 = Campaign.attach(campaignAddress);
+      const campaign1 = Campaign.attach(campaign1Address);
       await campaign1.connect(contributor).contribute({ value: ethers.parseEther("1") });
 
       // Get active campaigns
@@ -242,26 +270,32 @@ describe("CrowdfundingFactory", function () {
 
       // Should only return the second campaign (first reached goal)
       expect(activeCampaigns.length).to.equal(1);
-      expect(activeCampaigns[0]).to.not.equal(campaignAddress);
+      expect(activeCampaigns[0]).to.not.equal(campaign1Address);
+    });
+
+    it("Should exclude cancelled campaigns from active list", async function () {
+      const campaignAddress = await createCampaign(
+        creator1,
+        GOAL,
+        DURATION,
+        IPFS_HASH
+      );
+
+      const Campaign = await ethers.getContractFactory("Campaign");
+      const campaign = Campaign.attach(campaignAddress);
+      await campaign.connect(creator1).cancel();
+
+      const activeCampaigns = await factory.getActiveCampaigns();
+      expect(activeCampaigns.length).to.equal(0);
     });
 
     it("Should return empty array if no active campaigns", async function () {
-      const tx = await factory.connect(creator1).createCampaign(
+      const campaignAddress = await createCampaign(
+        creator1,
         ethers.parseEther("1"),
         DURATION,
         IPFS_HASH
       );
-      const receipt = await tx.wait();
-
-      const event = receipt.logs.find(log => {
-        try {
-          return factory.interface.parseLog(log).name === "CampaignCreated";
-        } catch {
-          return false;
-        }
-      });
-
-      const campaignAddress = factory.interface.parseLog(event).args.campaignAddress;
 
       // Reach goal
       const Campaign = await ethers.getContractFactory("Campaign");
@@ -275,19 +309,7 @@ describe("CrowdfundingFactory", function () {
 
   describe("Campaign Verification", function () {
     it("Should verify valid campaigns", async function () {
-      const tx = await factory.connect(creator1).createCampaign(GOAL, DURATION, IPFS_HASH);
-      const receipt = await tx.wait();
-
-      const event = receipt.logs.find(log => {
-        try {
-          return factory.interface.parseLog(log).name === "CampaignCreated";
-        } catch {
-          return false;
-        }
-      });
-
-      const campaignAddress = factory.interface.parseLog(event).args.campaignAddress;
-
+      const campaignAddress = await createCampaign(creator1);
       expect(await factory.verifyCampaign(campaignAddress)).to.be.true;
     });
 
@@ -299,23 +321,12 @@ describe("CrowdfundingFactory", function () {
 
   describe("Integration Tests", function () {
     it("Should allow full campaign workflow through factory", async function () {
-      // Create campaign
-      const tx = await factory.connect(creator1).createCampaign(
+      const campaignAddress = await createCampaign(
+        creator1,
         ethers.parseEther("5"),
         DURATION,
         IPFS_HASH
       );
-      const receipt = await tx.wait();
-
-      const event = receipt.logs.find(log => {
-        try {
-          return factory.interface.parseLog(log).name === "CampaignCreated";
-        } catch {
-          return false;
-        }
-      });
-
-      const campaignAddress = factory.interface.parseLog(event).args.campaignAddress;
 
       // Interact with campaign
       const Campaign = await ethers.getContractFactory("Campaign");
@@ -326,12 +337,33 @@ describe("CrowdfundingFactory", function () {
 
       // Verify campaign state
       const details = await campaign.getCampaignDetails();
-      expect(details._totalFunds).to.equal(ethers.parseEther("5"));
-      expect(details._goalReached).to.be.true;
+      expect(details.totalFunds_).to.equal(ethers.parseEther("5"));
+      expect(details.goalReached_).to.be.true;
 
       // Creator withdraws
       await campaign.connect(creator1).withdraw();
       expect(await campaign.fundsWithdrawn()).to.be.true;
+    });
+
+    it("Should support full cancel-refund workflow through factory", async function () {
+      const campaignAddress = await createCampaign(
+        creator1,
+        ethers.parseEther("5"),
+        DURATION,
+        IPFS_HASH
+      );
+
+      const Campaign = await ethers.getContractFactory("Campaign");
+      const campaign = Campaign.attach(campaignAddress);
+
+      await campaign.connect(contributor).contribute({ value: ethers.parseEther("2") });
+
+      // Creator cancels, contributor refunds
+      await campaign.connect(creator1).cancel();
+      await campaign.connect(contributor).refund();
+
+      expect(await campaign.totalRefunded()).to.equal(ethers.parseEther("2"));
+      expect(await ethers.provider.getBalance(campaignAddress)).to.equal(0);
     });
   });
 });

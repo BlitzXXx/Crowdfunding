@@ -456,20 +456,19 @@ function updateGlobalStatsOnCampaignEnd(successful: boolean): void {
 
 ## 📊 Example Queries
 
-### Get All Active Campaigns
+> These match the actual schema in `schema.graphql`. Campaign/User ids are lowercase hex addresses.
+
+### Get Active Campaigns (not ended, not cancelled, goal not reached)
 ```graphql
 query GetActiveCampaigns {
   campaigns(
-    where: { state: Active }
+    where: { goalReached: false, cancelled: false, deadline_gt: "1756000000" }
     orderBy: createdAt
     orderDirection: desc
     first: 10
   ) {
     id
-    creator {
-      id
-    }
-    title
+    creator { id }
     goal
     totalFunds
     deadline
@@ -479,31 +478,28 @@ query GetActiveCampaigns {
 }
 ```
 
-### Get Campaign Details
+### Get Campaign Details with Contributions and Refunds
 ```graphql
 query GetCampaign($id: ID!) {
   campaign(id: $id) {
     id
-    creator {
-      id
-      totalCampaigns
-    }
-    title
-    description
-    category
+    creator { id campaignsCreatedCount }
     goal
-    totalFunds
     deadline
-    state
+    totalFunds
+    refundedAmount
+    withdrawnAmount
+    goalReached
+    fundsWithdrawn
+    cancelled
     contributorsCount
-    contributions(orderBy: timestamp, orderDirection: desc) {
+    contributions(orderBy: blockTimestamp, orderDirection: desc) {
       id
-      contributor {
-        id
-      }
+      contributor { id }
       amount
-      timestamp
+      blockTimestamp
     }
+    refunds { id contributor { id } amount }
   }
 }
 ```
@@ -513,39 +509,32 @@ query GetCampaign($id: ID!) {
 query GetUser($address: ID!) {
   user(id: $address) {
     id
-    totalCampaigns
+    campaignsCreatedCount
+    contributionsCount
     totalContributed
-    totalContributions
-    campaignsCreated {
+    totalRefunded
+    campaignsCreated { id goal totalFunds goalReached cancelled }
+    contributions(orderBy: blockTimestamp, orderDirection: desc) {
       id
-      title
-      state
-      totalFunds
-    }
-    contributions {
-      id
-      campaign {
-        id
-        title
-      }
       amount
-      timestamp
+      campaign { id }
     }
   }
 }
 ```
 
-### Get Global Statistics
+### Get Platform Statistics (singleton)
 ```graphql
-query GetGlobalStats {
-  globalStats(id: "1") {
+query GetPlatformStats {
+  platformStats(id: "platform") {
     totalCampaigns
-    totalContributions
-    totalFundsRaised
-    totalUsers
-    activeCampaigns
     successfulCampaigns
-    failedCampaigns
+    cancelledCampaigns
+    totalContributionCount
+    totalVolume
+    totalWithdrawn
+    totalRefunded
+    updatedAt
   }
 }
 ```
@@ -596,20 +585,19 @@ http://localhost:8000/subgraphs/name/crowdfunding-platform
 
 ## 📊 Phase 4 Checklist
 
-- [ ] Graph CLI installed
-- [ ] Subgraph initialized
-- [ ] GraphQL schema designed
-- [ ] ABIs copied from contracts
-- [ ] subgraph.yaml configured
-- [ ] Event handlers implemented
-- [ ] Helper functions created
-- [ ] Code generated (`graph codegen`)
-- [ ] Subgraph built successfully
-- [ ] Local testing complete
-- [ ] Deployed to Subgraph Studio
-- [ ] Queries tested
-- [ ] Query examples documented
-- [ ] Subgraph syncing correctly
+- [x] Graph CLI installed (local devDependency, no global install needed)
+- [x] Subgraph initialized (`subgraph.template.yaml` + `networks.json` + configure script)
+- [x] GraphQL schema designed (Campaign, User, Contribution, Withdrawal, Refund, PlatformStats)
+- [x] ABIs extracted from compiled contracts into `abis/`
+- [x] subgraph.yaml configured per network (`npm run configure:sepolia|configure:localhost`)
+- [x] Event handlers implemented — all 6 events incl. CampaignCancelled
+- [x] Helper functions created (`src/utils.ts`)
+- [x] Code generated (`npm run codegen`)
+- [x] Subgraph built successfully (`npm run build` → `build/subgraph.yaml`)
+- [ ] Local testing with graph-node *(requires Docker)*
+- [ ] Deployed to Subgraph Studio *(requires Studio deploy key)*
+- [ ] Queries tested against live endpoint
+- [x] Query examples documented
 
 ## 📚 Resources
 
@@ -625,6 +613,4 @@ Once Phase 4 is complete, proceed to:
 
 ---
 
-**Status**: 🔴 Not Started
-
-Ready when you complete Phase 2!
+**Status**: 🟢 Built & verified locally — deployment pending Studio deploy key + real factory address on Sepolia

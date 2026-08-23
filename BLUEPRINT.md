@@ -82,39 +82,48 @@ Through this project, you will master:
 
 ## 🛠️ Technology Stack
 
+> Updated Aug 2026 to current best practices.
+
 ### Blockchain & Smart Contracts
-- **Development Framework**: Hardhat
-- **Language**: Solidity ^0.8.20
-- **Libraries**: OpenZeppelin Contracts
-- **Testing**: Hardhat Test, Chai, Waffle
-- **Network**: Ethereum Sepolia (testnet) → Mainnet/L2
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| **Solidity** | ^0.8.28 | Smart contract language (custom errors, Cancun EVM) |
+| **Hardhat** | ^2.26 | Development environment (EDR-based network) |
+| **OpenZeppelin Contracts** | ^5.x | ReentrancyGuard, Initializable, Clones (EIP-1167) |
+| **ethers.js** | ^6.x | Contract interaction in scripts/tests |
+
+**Architecture highlights**: campaigns deploy as CREATE2-deterministic minimal proxies (~80% cheaper than full deploys), gas-optimized custom errors replace require strings, pull-payment refunds, creator cancellation flow.
 
 ### Indexing & Querying
-- **The Graph**: Subgraph for event indexing
-- **GraphQL**: Query language for data retrieval
-- **IPFS**: Decentralized storage (Pinata or NFT.Storage)
+- **The Graph**: Subgraph Studio for event indexing (AssemblyScript mappings)
+- **Ponder** *(alternative)*: TypeScript-native indexer, great DX for app-specific chains
+- **IPFS**: Pinata (pinning + gateways); `helia`/`@pinata/sdk` clients
 
 ### Backend Services
-- **Runtime**: Node.js
-- **Framework**: Express.js
-- **Database**: PostgreSQL (for off-chain data)
+- **Runtime**: Node.js 20+ (LTS)
+- **Framework**: Hono (TypeScript-first, ultra-fast) — replaces Express
+- **Validation**: Zod schemas shared between API routes
+- **Database**: PostgreSQL + Prisma ORM
 - **Caching**: Redis (optional)
-- **IPFS Client**: ipfs-http-client
+- **Testing**: Vitest + Supertest
 
 ### Frontend
-- **Framework**: React 18+ with Vite
-- **Web3 Library**: ethers.js v6
-- **Styling**: TailwindCSS
-- **State Management**: React Context / Zustand
-- **GraphQL Client**: Apollo Client / urql
-- **UI Components**: Headless UI / Radix UI
+- **Framework**: React 19 + Vite (TypeScript)
+- **Web3 Layer**: wagmi v2 + viem v2 (replaces raw ethers.js integration)
+- **Wallet UX**: ConnectKit or RainbowKit-style modal — MetaMask, WalletConnect, Coinbase Wallet, embedded wallets out of the box
+- **Data Fetching**: TanStack Query v5 (contract reads + GraphQL via request fetchers)
+- **Styling**: TailwindCSS v4
+- **State**: Zustand (app state), wagmi hooks (wallet/chain state)
+- **UI Components**: Radix UI primitives + Lucide icons
+- **Forms**: react-hook-form + zod resolvers
 
 ### DevOps & Deployment
-- **Smart Contracts**: Hardhat Deploy
-- **Frontend**: Vercel / Netlify
-- **Backend**: Railway / Render
+- **Smart Contracts**: Hardhat Ignition modules (declarative deploys)
+- **Verification**: hardhat-verify (Etherscan V2 API)
+- **Frontend**: Vercel
+- **Backend**: Railway / Render / Fly.io
 - **Subgraph**: The Graph Studio
-- **CI/CD**: GitHub Actions
+- **CI/CD**: GitHub Actions (test → coverage → deploy pipeline)
 
 ## 📋 High-Level Features
 
@@ -146,15 +155,17 @@ Through this project, you will master:
 
 ## 🚀 Project Phases
 
-### Phase 1: Architecture & Setup (Week 1)
+> **Progress legend**: ✅ Complete · 🔨 In progress · ⬜ Not started
+
+### Phase 1: Architecture & Setup ✅ (Week 1)
 **Goal**: Set up development environment and understand the system architecture
 
 **Deliverables**:
-- Development environment configuration
-- Project structure scaffolding
-- Architecture documentation
-- Development workflow setup
-- Git repository structure
+- ✅ Development environment configuration
+- ✅ Project structure scaffolding
+- ✅ Architecture documentation
+- ✅ Development workflow setup
+- ✅ Git repository structure
 
 **Key Learnings**:
 - Hardhat project setup and configuration
@@ -164,15 +175,15 @@ Through this project, you will master:
 
 ---
 
-### Phase 2: Smart Contracts Development (Week 2-3)
+### Phase 2: Smart Contracts Development ✅ (Week 2-3)
 **Goal**: Build, test, and deploy core smart contracts
 
 **Deliverables**:
-- CrowdfundingFactory contract
-- Campaign contract with full lifecycle
-- Comprehensive test suite (unit + integration)
-- Gas optimization analysis
-- Security audit checklist
+- ✅ CrowdfundingFactory contract (minimal-proxy clones, deterministic addresses)
+- ✅ Campaign contract with full lifecycle (contribute / withdraw / refund / **cancel**)
+- ✅ Comprehensive test suite — 73 tests, 98.9% statement coverage, 100% line coverage
+- ✅ Gas optimization (custom errors, EIP-1167 clones, unchecked loops)
+- ⬜ Static analysis pass (Slither) — scheduled with Phase 6 security review
 
 **Key Learnings**:
 - Solidity programming patterns
@@ -185,15 +196,15 @@ Through this project, you will master:
 
 ---
 
-### Phase 3: Backend & Off-Chain Services (Week 4)
+### Phase 3: Backend & Off-Chain Services 🔨 (Week 4)
 **Goal**: Build supporting backend services and IPFS integration
 
 **Deliverables**:
-- REST API for campaign metadata
-- IPFS integration for file storage
-- Database schema for off-chain data
-- API documentation
-- Health monitoring endpoints
+- 🔨 REST API for campaign metadata (Hono + Zod + Prisma)
+- ⬜ IPFS integration for file storage (Pinata)
+- ⬜ Database schema for off-chain data
+- ⬜ API documentation (OpenAPI)
+- ⬜ Health monitoring endpoints
 
 **Key Learnings**:
 - IPFS upload and retrieval
@@ -204,15 +215,15 @@ Through this project, you will master:
 
 ---
 
-### Phase 4: Indexing & Subgraph (Week 5)
+### Phase 4: Indexing & Subgraph ⬜ (Week 5)
 **Goal**: Index blockchain events for efficient querying
 
 **Deliverables**:
-- The Graph subgraph definition
-- Event handlers for all contract events
-- GraphQL schema
-- Subgraph deployment
-- Query examples and documentation
+- ⬜ The Graph subgraph definition (graph-cli latest, AssemblyScript)
+- ⬜ Event handlers for all contract events (incl. CampaignCancelled)
+- ⬜ GraphQL schema
+- ⬜ Subgraph deployment (Studio)
+- ⬜ Query examples and documentation
 
 **Key Learnings**:
 - The Graph architecture
@@ -224,16 +235,16 @@ Through this project, you will master:
 
 ---
 
-### Phase 5: Frontend Development (Week 6-7)
+### Phase 5: Frontend Development ⬜ (Week 6-7)
 **Goal**: Build a complete user interface with Web3 integration
 
 **Deliverables**:
-- Wallet connection flow
-- Campaign creation interface
-- Campaign browsing and filtering
-- Contribution flow with transaction feedback
-- User dashboard
-- Responsive design
+- ⬜ Wallet connection flow (wagmi v2 + ConnectKit — multi-wallet, not just MetaMask)
+- ⬜ Campaign creation interface
+- ⬜ Campaign browsing and filtering
+- ⬜ Contribution flow with transaction feedback
+- ⬜ User dashboard
+- ⬜ Responsive design
 
 **Key Learnings**:
 - ethers.js integration patterns
@@ -246,15 +257,15 @@ Through this project, you will master:
 
 ---
 
-### Phase 6: Testing & Deployment (Week 8)
+### Phase 6: Testing & Deployment ⬜ (Week 8)
 **Goal**: Comprehensive testing and production deployment
 
 **Deliverables**:
-- End-to-end testing suite
-- Testnet deployment
-- Production deployment checklist
-- User documentation
-- Video demo
+- ⬜ End-to-end testing suite (Playwright)
+- ⬜ Testnet deployment (Hardhat Ignition + Etherscan V2 verification)
+- ⬜ Production deployment checklist
+- ⬜ User documentation
+- ⬜ Video demo
 
 **Key Learnings**:
 - Integration testing strategies

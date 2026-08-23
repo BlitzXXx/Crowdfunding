@@ -215,21 +215,21 @@ npx hardhat verify --network sepolia DEPLOYED_CONTRACT_ADDRESS
 
 ## 📊 Phase 2 Checklist
 
-- [ ] Hardhat project initialized
-- [ ] Dependencies installed
-- [ ] Configuration complete
-- [ ] CrowdfundingFactory contract written
-- [ ] Campaign contract written
-- [ ] All events defined
-- [ ] All modifiers implemented
-- [ ] Unit tests written (>90% coverage)
-- [ ] Integration tests written
-- [ ] Gas optimization performed
-- [ ] Security review completed
-- [ ] Deployment scripts written
-- [ ] Local deployment successful
-- [ ] Sepolia deployment successful
-- [ ] Contracts verified on Etherscan
+- [x] Hardhat project initialized
+- [x] Dependencies installed
+- [x] Configuration complete (Solidity 0.8.28, optimizer, Cancun EVM)
+- [x] CrowdfundingFactory contract written (EIP-1167 clones + CREATE2 determinism)
+- [x] Campaign contract written (initialize pattern, cancel flow, custom errors)
+- [x] All events defined (incl. GoalReached, CampaignCancelled)
+- [x] All modifiers implemented (+ ReentrancyGuard from OZ v5)
+- [x] Unit tests written — **98.9% statement coverage, 100% lines**
+- [x] Integration tests written (create→contribute→withdraw, create→cancel→refund)
+- [x] Gas optimization performed (~261–295k per campaign via minimal proxy)
+- [x] Security review completed ([Slither report](../docs/security/SLITHER_REPORT.md) — no high/medium issues)
+- [x] Deployment scripts written (classic + Hardhat Ignition module)
+- [x] Local deployment successful (Ignition verified on hardhat network)
+- [ ] Sepolia deployment successful *(requires `SEPOLIA_RPC_URL` + funded `PRIVATE_KEY`)*
+- [ ] Contracts verified on Etherscan *(requires `ETHERSCAN_API_KEY`)*
 
 ## 📚 Resources
 
@@ -246,6 +246,4 @@ Once Phase 2 is complete, proceed to:
 
 ---
 
-**Status**: 🔴 Not Started
-
-When you're ready to begin, let's initialize the Hardhat project and write our first contract!
+**Status**: ✅ Complete — 73 tests passing, 98.9% coverage, Slither-clean. Testnet deploy pending user-side keys (Sepolia RPC, funded private key, Etherscan API key).
