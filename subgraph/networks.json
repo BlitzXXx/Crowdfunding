@@ -1,0 +1,12 @@
+{
+  "sepolia": {
+    "network": "sepolia",
+    "factoryAddress": "0x0000000000000000000000000000000000000000",
+    "startBlock": 0
+  },
+  "localhost": {
+    "network": "localhost",
+    "factoryAddress": "0x0000000000000000000000000000000000000000",
+    "startBlock": 0
+  }
+}

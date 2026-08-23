@@ -1,26 +1,51 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.28;
 
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 /**
  * @title Campaign
- * @dev Individual crowdfunding campaign contract
- * @notice This contract represents a single crowdfunding campaign with contributions, withdrawals, and refunds
+ * @dev Individual crowdfunding campaign contract, deployed as a minimal proxy (EIP-1167 clone)
+ *      by CrowdfundingFactory to minimize per-campaign deployment gas costs.
+ * @notice Supports contributions, creator withdrawals on success, pull-based refunds on
+ *         failure, and voluntary cancellation by the creator.
  */
-contract Campaign is ReentrancyGuard {
+contract Campaign is Initializable, ReentrancyGuard {
+    // ============================================
+    // CUSTOM ERRORS
+    // ============================================
+
+    error ZeroAddress();
+    error ZeroGoal();
+    error ZeroDuration();
+    error EmptyIPFSHash();
+    error AlreadyInitialized();
+    error NotCreator();
+    error ZeroValue();
+    error CampaignEnded();
+    error GoalAlreadyReached();
+    error CampaignCancelledError();
+    error GoalNotReached();
+    error AlreadyWithdrawn();
+    error NothingToRefund();
+    error RefundsLocked();
+    error TransferFailed();
+
     // ============================================
     // STATE VARIABLES
     // ============================================
 
-    address public immutable creator;          // Campaign creator (immutable for gas savings)
-    uint256 public immutable goal;             // Funding goal in wei
-    uint256 public immutable deadline;         // Campaign deadline (Unix timestamp)
-    string public ipfsHash;                    // IPFS hash for campaign metadata
+    address public creator;        // Campaign creator
+    uint256 public goal;           // Funding goal in wei
+    uint256 public deadline;       // Campaign deadline (Unix timestamp)
+    string public ipfsHash;        // IPFS hash for campaign metadata
 
-    uint256 public totalFunds;                 // Total funds raised
-    bool public goalReached;                   // True if funding goal is met
-    bool public fundsWithdrawn;                // True if creator has withdrawn funds
+    uint256 public totalFunds;     // Total funds raised
+    uint256 public totalRefunded;  // Total funds refunded to contributors
+    bool public goalReached;       // True if funding goal is met
+    bool public fundsWithdrawn;    // True if creator has withdrawn funds
+    bool public cancelled;         // True if creator cancelled the campaign
 
     mapping(address => uint256) public contributions;  // Track individual contributions
     address[] public contributors;                     // List of contributor addresses
@@ -34,53 +59,40 @@ contract Campaign is ReentrancyGuard {
     event GoalReached(uint256 totalAmount);
     event WithdrawalMade(address indexed creator, uint256 amount);
     event RefundClaimed(address indexed contributor, uint256 amount);
+    event CampaignCancelled(address indexed creator);
 
     // ============================================
-    // MODIFIERS
-    // ============================================
-
-    modifier onlyCreator() {
-        require(msg.sender == creator, "Only creator can call this function");
-        _;
-    }
-
-    modifier campaignActive() {
-        require(block.timestamp < deadline, "Campaign has ended");
-        require(!goalReached, "Campaign goal already reached");
-        _;
-    }
-
-    modifier afterDeadline() {
-        require(block.timestamp >= deadline, "Campaign is still active");
-        _;
-    }
-
-    // ============================================
-    // CONSTRUCTOR
+    // CONSTRUCTOR / INITIALIZER
     // ============================================
 
     /**
-     * @dev Create a new campaign
-     * @param _creator Address of the campaign creator
-     * @param _goal Funding goal in wei
-     * @param _duration Campaign duration in seconds
-     * @param _ipfsHash IPFS hash containing campaign metadata
+     * @custom:oz-upgrades-unsafe-allow constructor
+     * @dev Deployed once as the implementation behind minimal proxies. Disables
+     *      initializers so the logic contract can never be initialized itself.
      */
-    constructor(
-        address _creator,
-        uint256 _goal,
-        uint256 _duration,
-        string memory _ipfsHash
-    ) {
-        require(_creator != address(0), "Invalid creator address");
-        require(_goal > 0, "Goal must be greater than 0");
-        require(_duration > 0, "Duration must be greater than 0");
-        require(bytes(_ipfsHash).length > 0, "IPFS hash cannot be empty");
+    constructor() {
+        _disableInitializers();
+    }
 
-        creator = _creator;
-        goal = _goal;
-        deadline = block.timestamp + _duration;
-        ipfsHash = _ipfsHash;
+    /**
+     * @dev Initialize a cloned campaign. Callable exactly once by the factory.
+     * @param creator_ Address of the campaign creator
+     * @param goal_ Funding goal in wei
+     * @param duration_ Campaign duration in seconds
+     * @param ipfsHash_ IPFS hash containing campaign metadata
+     */
+    function initialize(
+        address creator_,
+        uint256 goal_,
+        uint256 duration_,
+        string calldata ipfsHash_
+    ) external initializer {
+        _validate(creator_, goal_, duration_, ipfsHash_);
+
+        creator = creator_;
+        goal = goal_;
+        deadline = block.timestamp + duration_;
+        ipfsHash = ipfsHash_;
     }
 
     // ============================================
@@ -91,8 +103,11 @@ contract Campaign is ReentrancyGuard {
      * @dev Contribute ETH to the campaign
      * @notice Anyone can contribute while campaign is active
      */
-    function contribute() external payable campaignActive nonReentrant {
-        require(msg.value > 0, "Contribution must be greater than 0");
+    function contribute() external payable nonReentrant {
+        if (cancelled) revert CampaignCancelledError();
+        if (block.timestamp >= deadline) revert CampaignEnded();
+        if (goalReached) revert GoalAlreadyReached();
+        if (msg.value == 0) revert ZeroValue();
 
         // Add to contributor list if first contribution
         if (!isContributor[msg.sender]) {
@@ -107,7 +122,7 @@ contract Campaign is ReentrancyGuard {
         emit ContributionMade(msg.sender, msg.value);
 
         // Check if goal is reached
-        if (totalFunds >= goal && !goalReached) {
+        if (totalFunds >= goal) {
             goalReached = true;
             emit GoalReached(totalFunds);
         }
@@ -117,36 +132,54 @@ contract Campaign is ReentrancyGuard {
      * @dev Creator withdraws funds if goal is reached
      * @notice Can only be called by creator after goal is reached
      */
-    function withdraw() external onlyCreator nonReentrant {
-        require(goalReached, "Goal not reached");
-        require(!fundsWithdrawn, "Funds already withdrawn");
+    function withdraw() external nonReentrant {
+        if (msg.sender != creator) revert NotCreator();
+        if (!goalReached) revert GoalNotReached();
+        if (fundsWithdrawn) revert AlreadyWithdrawn();
 
         fundsWithdrawn = true;
         uint256 amount = address(this).balance;
 
         emit WithdrawalMade(creator, amount);
 
-        // Transfer funds to creator
-        (bool success, ) = payable(creator).call{value: amount}("");
-        require(success, "Transfer failed");
+        (bool success,) = payable(creator).call{value: amount}("");
+        if (!success) revert TransferFailed();
     }
 
     /**
-     * @dev Contributors claim refund if goal not reached by deadline
-     * @notice Can only be called after deadline if goal not reached
+     * @dev Contributors claim refund if the goal was not reached by deadline,
+     *      or immediately if the creator cancelled the campaign.
      */
-    function refund() external afterDeadline nonReentrant {
-        require(!goalReached, "Goal was reached, no refunds");
-        require(contributions[msg.sender] > 0, "No contribution to refund");
+    function refund() external nonReentrant {
+        if (!cancelled) {
+            if (block.timestamp < deadline) revert RefundsLocked();
+            if (goalReached) revert RefundsLocked();
+        }
 
         uint256 amount = contributions[msg.sender];
-        contributions[msg.sender] = 0;  // Prevent re-entrancy
+        if (amount == 0) revert NothingToRefund();
+
+        contributions[msg.sender] = 0;  // Effects before interactions
+        totalRefunded += amount;
 
         emit RefundClaimed(msg.sender, amount);
 
-        // Transfer refund to contributor
-        (bool success, ) = payable(msg.sender).call{value: amount}("");
-        require(success, "Refund transfer failed");
+        (bool success,) = payable(msg.sender).call{value: amount}("");
+        if (!success) revert TransferFailed();
+    }
+
+    /**
+     * @dev Creator cancels an active campaign. Contributors can then refund
+     *      immediately via {refund}.
+     */
+    function cancel() external nonReentrant {
+        if (msg.sender != creator) revert NotCreator();
+        if (cancelled) revert CampaignCancelledError();
+        if (goalReached) revert GoalAlreadyReached();
+        if (block.timestamp >= deadline) revert CampaignEnded();
+
+        cancelled = true;
+        emit CampaignCancelled(creator);
     }
 
     // ============================================
@@ -154,18 +187,25 @@ contract Campaign is ReentrancyGuard {
     // ============================================
 
     /**
-     * @dev Get campaign details
-     * @return Campaign information in a single call
+     * @dev Get campaign details in a single call
+     * @return creator_ Campaign creator address
+     * @return goal_ Funding goal in wei
+     * @return deadline_ Deadline as Unix timestamp
+     * @return totalFunds_ Total funds raised
+     * @return goalReached_ Whether funding goal was reached
+     * @return fundsWithdrawn_ Whether creator withdrew funds
+     * @return ipfsHash_ IPFS hash of campaign metadata
+     * @return contributorsCount_ Number of unique contributors
      */
     function getCampaignDetails() external view returns (
-        address _creator,
-        uint256 _goal,
-        uint256 _deadline,
-        uint256 _totalFunds,
-        bool _goalReached,
-        bool _fundsWithdrawn,
-        string memory _ipfsHash,
-        uint256 _contributorsCount
+        address creator_,
+        uint256 goal_,
+        uint256 deadline_,
+        uint256 totalFunds_,
+        bool goalReached_,
+        bool fundsWithdrawn_,
+        string memory ipfsHash_,
+        uint256 contributorsCount_
     ) {
         return (
             creator,
@@ -189,30 +229,32 @@ contract Campaign is ReentrancyGuard {
 
     /**
      * @dev Get contribution amount for a specific contributor
-     * @param _contributor Address to query
+     * @param contributor Address to query
      * @return Contribution amount in wei
      */
-    function getContribution(address _contributor) external view returns (uint256) {
-        return contributions[_contributor];
+    function getContribution(address contributor) external view returns (uint256) {
+        return contributions[contributor];
     }
 
     /**
-     * @dev Check if campaign is active
-     * @return True if campaign is still accepting contributions
+     * @dev Check if campaign is accepting contributions
+     * @return True if campaign is still active
      */
     function isActive() external view returns (bool) {
-        return block.timestamp < deadline && !goalReached;
+        return !cancelled && !goalReached && block.timestamp < deadline;
     }
 
     /**
      * @dev Get campaign state
-     * @return 0: Active, 1: Successful, 2: Failed
+     * @return 0: Active, 1: Successful, 2: Failed, 3: Cancelled
      */
     function getState() external view returns (uint8) {
-        if (block.timestamp < deadline && !goalReached) {
-            return 0; // Active
+        if (cancelled) {
+            return 3; // Cancelled
         } else if (goalReached) {
             return 1; // Successful
+        } else if (block.timestamp < deadline) {
+            return 0; // Active
         } else {
             return 2; // Failed
         }
@@ -236,5 +278,21 @@ contract Campaign is ReentrancyGuard {
     function getProgress() external view returns (uint256) {
         if (goal == 0) return 0;
         return (totalFunds * 100) / goal;
+    }
+
+    // ============================================
+    // INTERNAL FUNCTIONS
+    // ============================================
+
+    function _validate(
+        address creator_,
+        uint256 goal_,
+        uint256 duration_,
+        string calldata ipfsHash_
+    ) private pure {
+        if (creator_ == address(0)) revert ZeroAddress();
+        if (goal_ == 0) revert ZeroGoal();
+        if (duration_ == 0) revert ZeroDuration();
+        if (bytes(ipfsHash_).length == 0) revert EmptyIPFSHash();
     }
 }

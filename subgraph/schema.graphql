@@ -1,0 +1,97 @@
+# Campaign entity — one per deployed Campaign clone
+type Campaign @entity(immutable: false) {
+  id: ID! # campaign proxy address as hex string
+  address: Bytes!
+  creator: User!
+  goal: BigInt! # wei
+  deadline: BigInt! # unix seconds
+  ipfsHash: String!
+
+  totalFunds: BigInt! # cumulative raised (mirrors on-chain, never decremented)
+  refundedAmount: BigInt! # cumulative refunds paid out
+  withdrawnAmount: BigInt! # amount creator withdrew
+
+  goalReached: Boolean!
+  fundsWithdrawn: Boolean!
+  cancelled: Boolean!
+
+  contributorsCount: BigInt!
+  contributionsCount: BigInt!
+
+  createdAt: BigInt!
+  createdAtBlock: BigInt!
+  updatedAt: BigInt!
+
+  contributors: [Bytes!]!
+
+  contributions: [Contribution!]! @derivedFrom(field: "campaign")
+  refunds: [Refund!]! @derivedFrom(field: "campaign")
+}
+
+# User entity — wallet participating as backer and/or creator
+type User @entity(immutable: false) {
+  id: ID! # wallet address as hex string
+  address: Bytes!
+
+  campaignsCreated: [Campaign!]! @derivedFrom(field: "creator")
+  campaignsCreatedCount: BigInt!
+
+  contributions: [Contribution!]! @derivedFrom(field: "contributor")
+  contributionsCount: BigInt!
+  totalContributed: BigInt! # across all campaigns (wei)
+
+  totalRefunded: BigInt!
+
+  createdAt: BigInt!
+}
+
+# Individual contribution event record
+type Contribution @entity(immutable: true) {
+  id: ID! # <txHash>-<logIndex>
+  campaign: Campaign!
+  contributor: User!
+  amount: BigInt! # wei
+
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  txHash: Bytes!
+}
+
+# Creator payout record
+type Withdrawal @entity(immutable: true) {
+  id: ID! # <txHash>-<logIndex>
+  campaign: Campaign!
+  amount: BigInt! # wei
+
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  txHash: Bytes!
+}
+
+# Contributor refund record
+type Refund @entity(immutable: true) {
+  id: ID! # <txHash>-<logIndex>
+  campaign: Campaign!
+  contributor: User!
+  amount: BigInt! # wei
+
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  txHash: Bytes!
+}
+
+# Singleton platform-wide aggregates
+type PlatformStats @entity(immutable: false) {
+  id: ID! # "platform"
+
+  totalCampaigns: BigInt!
+  successfulCampaigns: BigInt!
+  cancelledCampaigns: BigInt!
+
+  totalContributionCount: BigInt!
+  totalVolume: BigInt! # sum of all contributions (wei)
+  totalWithdrawn: BigInt!
+  totalRefunded: BigInt!
+
+  updatedAt: BigInt!
+}

@@ -1,21 +1,41 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.28;
 
+import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import "./Campaign.sol";
 
 /**
  * @title CrowdfundingFactory
- * @dev Factory contract for creating and tracking Campaign contracts
- * @notice This contract uses the factory pattern to deploy individual campaign contracts
+ * @dev Factory contract for creating and tracking Campaign contracts.
+ * @notice Deploys campaigns as EIP-1167 minimal proxies (deterministic via CREATE2)
+ *         against a single shared implementation, cutting per-campaign deployment
+ *         gas cost by ~80% compared to full contract deployments.
  */
 contract CrowdfundingFactory {
+    using Clones for address;
+
+    // ============================================
+    // CUSTOM ERRORS
+    // ============================================
+
+    error InvalidGoal();
+    error InvalidDuration();
+    error DurationTooLong();
+    error EmptyIPFSHash();
+    error StartIndexOutOfBounds();
+
     // ============================================
     // STATE VARIABLES
     // ============================================
 
+    /// @notice Shared Campaign implementation all clones point to
+    address public immutable campaignImplementation;
+
     address[] public campaigns;                              // All deployed campaigns
     mapping(address => address[]) public campaignsByCreator; // Campaigns by creator
     mapping(address => bool) public isCampaign;              // Quick lookup for valid campaigns
+
+    uint256 private constant MAX_DURATION = 365 days;
 
     // ============================================
     // EVENTS
@@ -30,50 +50,58 @@ contract CrowdfundingFactory {
     );
 
     // ============================================
+    // CONSTRUCTOR
+    // ============================================
+
+    constructor() {
+        campaignImplementation = address(new Campaign());
+    }
+
+    // ============================================
     // EXTERNAL FUNCTIONS
     // ============================================
 
     /**
-     * @dev Create a new crowdfunding campaign
-     * @param _goal Funding goal in wei
-     * @param _duration Campaign duration in seconds
-     * @param _ipfsHash IPFS hash containing campaign metadata
+     * @dev Create a new crowdfunding campaign as a deterministic minimal proxy
+     * @param goal Funding goal in wei
+     * @param duration Campaign duration in seconds
+     * @param ipfsHash IPFS hash containing campaign metadata
      * @return The address of the newly created campaign
      */
     function createCampaign(
-        uint256 _goal,
-        uint256 _duration,
-        string memory _ipfsHash
+        uint256 goal,
+        uint256 duration,
+        string calldata ipfsHash
     ) external returns (address) {
-        require(_goal > 0, "Goal must be greater than 0");
-        require(_duration > 0, "Duration must be greater than 0");
-        require(_duration <= 365 days, "Duration too long (max 365 days)");
-        require(bytes(_ipfsHash).length > 0, "IPFS hash cannot be empty");
+        if (goal == 0) revert InvalidGoal();
+        if (duration == 0) revert InvalidDuration();
+        if (duration > MAX_DURATION) revert DurationTooLong();
+        if (bytes(ipfsHash).length == 0) revert EmptyIPFSHash();
 
-        // Deploy new Campaign contract
-        Campaign newCampaign = new Campaign(
-            msg.sender,
-            _goal,
-            _duration,
-            _ipfsHash
-        );
+        // Deterministic salt derived from the current campaign index
+        bytes32 salt = bytes32(campaigns.length);
 
-        address campaignAddress = address(newCampaign);
+        // Deploy minimal proxy (returns the clone address)
+        address clone = Clones.cloneDeterministic(campaignImplementation, salt);
 
-        // Track the campaign
-        campaigns.push(campaignAddress);
-        campaignsByCreator[msg.sender].push(campaignAddress);
-        isCampaign[campaignAddress] = true;
+        // Track the campaign BEFORE the external initialize call (checks-effects-interactions)
+        campaigns.push(clone);
+        campaignsByCreator[msg.sender].push(clone);
+        isCampaign[clone] = true;
 
-        emit CampaignCreated(
-            campaignAddress,
-            msg.sender,
-            _goal,
-            block.timestamp + _duration,
-            _ipfsHash
-        );
+        Campaign(clone).initialize(msg.sender, goal, duration, ipfsHash);
 
-        return campaignAddress;
+        emit CampaignCreated(clone, msg.sender, goal, block.timestamp + duration, ipfsHash);
+
+        return clone;
+    }
+
+    /**
+     * @dev Predict the address of the next campaign that will be created
+     * @return The deterministic address of the next campaign clone
+     */
+    function predictNextCampaignAddress() external view returns (address) {
+        return campaignImplementation.predictDeterministicAddress(bytes32(campaigns.length));
     }
 
     // ============================================
@@ -90,11 +118,11 @@ contract CrowdfundingFactory {
 
     /**
      * @dev Get campaigns created by a specific address
-     * @param _creator Creator address to query
+     * @param creator Creator address to query
      * @return Array of campaign addresses
      */
-    function getCampaignsByCreator(address _creator) external view returns (address[] memory) {
-        return campaignsByCreator[_creator];
+    function getCampaignsByCreator(address creator) external view returns (address[] memory) {
+        return campaignsByCreator[creator];
     }
 
     /**
@@ -107,26 +135,28 @@ contract CrowdfundingFactory {
 
     /**
      * @dev Get paginated campaigns
-     * @param _start Start index
-     * @param _limit Number of campaigns to return
+     * @param start Start index
+     * @param limit Number of campaigns to return
      * @return Array of campaign addresses
      */
     function getCampaignsPaginated(
-        uint256 _start,
-        uint256 _limit
+        uint256 start,
+        uint256 limit
     ) external view returns (address[] memory) {
-        require(_start < campaigns.length, "Start index out of bounds");
+        if (start >= campaigns.length) revert StartIndexOutOfBounds();
 
-        uint256 end = _start + _limit;
+        uint256 end = start + limit;
         if (end > campaigns.length) {
             end = campaigns.length;
         }
 
-        uint256 resultLength = end - _start;
+        uint256 resultLength = end - start;
         address[] memory result = new address[](resultLength);
 
-        for (uint256 i = 0; i < resultLength; i++) {
-            result[i] = campaigns[_start + i];
+        unchecked {
+            for (uint256 i = 0; i < resultLength; i++) {
+                result[i] = campaigns[start + i];
+            }
         }
 
         return result;
@@ -134,11 +164,16 @@ contract CrowdfundingFactory {
 
     /**
      * @dev Get campaign details in bulk
-     * @param _campaignAddresses Array of campaign addresses
-     * @return Array of campaign details
+     * @param campaignAddresses Array of campaign addresses
+     * @return creators Array of creators (zero for invalid addresses)
+     * @return goals Array of funding goals
+     * @return deadlines Array of deadlines
+     * @return totalFunds Array of funds raised
+     * @return goalReached Array of goal-reached flags
+     * @return contributorsCount Array of contributor counts
      */
     function getCampaignDetailsBulk(
-        address[] memory _campaignAddresses
+        address[] memory campaignAddresses
     ) external view returns (
         address[] memory creators,
         uint256[] memory goals,
@@ -147,7 +182,7 @@ contract CrowdfundingFactory {
         bool[] memory goalReached,
         uint256[] memory contributorsCount
     ) {
-        uint256 length = _campaignAddresses.length;
+        uint256 length = campaignAddresses.length;
 
         creators = new address[](length);
         goals = new uint256[](length);
@@ -157,41 +192,34 @@ contract CrowdfundingFactory {
         contributorsCount = new uint256[](length);
 
         for (uint256 i = 0; i < length; i++) {
-            if (isCampaign[_campaignAddresses[i]]) {
-                Campaign campaign = Campaign(_campaignAddresses[i]);
+            address campaignAddress = campaignAddresses[i];
+            if (isCampaign[campaignAddress]) {
+                Campaign campaign = Campaign(campaignAddress);
                 (
-                    address creator,
-                    uint256 goal,
-                    uint256 deadline,
-                    uint256 total,
-                    bool reached,
+                    creators[i],
+                    goals[i],
+                    deadlines[i],
+                    totalFunds[i],
+                    goalReached[i],
                     ,
                     ,
-                    uint256 count
+                    contributorsCount[i]
                 ) = campaign.getCampaignDetails();
-
-                creators[i] = creator;
-                goals[i] = goal;
-                deadlines[i] = deadline;
-                totalFunds[i] = total;
-                goalReached[i] = reached;
-                contributorsCount[i] = count;
             }
         }
-
-        return (creators, goals, deadlines, totalFunds, goalReached, contributorsCount);
     }
 
     /**
-     * @dev Get active campaigns (not ended and goal not reached)
+     * @dev Get active campaigns (not ended, goal not reached, not cancelled)
      * @return Array of active campaign addresses
      */
     function getActiveCampaigns() external view returns (address[] memory) {
+        uint256 length = campaigns.length;
+
         // First pass: count active campaigns
         uint256 activeCount = 0;
-        for (uint256 i = 0; i < campaigns.length; i++) {
-            Campaign campaign = Campaign(campaigns[i]);
-            if (campaign.isActive()) {
+        for (uint256 i = 0; i < length; i++) {
+            if (Campaign(campaigns[i]).isActive()) {
                 activeCount++;
             }
         }
@@ -199,10 +227,10 @@ contract CrowdfundingFactory {
         // Second pass: populate array
         address[] memory activeCampaigns = new address[](activeCount);
         uint256 index = 0;
-        for (uint256 i = 0; i < campaigns.length; i++) {
-            Campaign campaign = Campaign(campaigns[i]);
-            if (campaign.isActive()) {
-                activeCampaigns[index] = campaigns[i];
+        for (uint256 i = 0; i < length; i++) {
+            address campaignAddress = campaigns[i];
+            if (Campaign(campaignAddress).isActive()) {
+                activeCampaigns[index] = campaignAddress;
                 index++;
             }
         }
@@ -212,10 +240,10 @@ contract CrowdfundingFactory {
 
     /**
      * @dev Verify if an address is a campaign created by this factory
-     * @param _campaign Address to verify
+     * @param campaign Address to verify
      * @return True if it's a valid campaign
      */
-    function verifyCampaign(address _campaign) external view returns (bool) {
-        return isCampaign[_campaign];
+    function verifyCampaign(address campaign) external view returns (bool) {
+        return isCampaign[campaign];
     }
 }
