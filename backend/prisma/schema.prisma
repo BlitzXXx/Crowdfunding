@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Off-chain metadata for an on-chain Campaign (1:1 by campaign address)
+model CampaignMetadata {
+  id            String   @id @default(cuid())
+  /// On-chain campaign proxy address (lowercase, unique)
+  campaignAddress String @unique
+  /// Factory contract that deployed the campaign
+  factoryAddress String
+  chainId       Int      @default(11155111)
+
+  title         String
+  description   String
+  category      String?
+  imageUrl      String?
+  /// IPFS CID of the full metadata JSON document
+  metadataCid   String?
+
+  websiteUrl    String?
+  twitterHandle String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([category])
+  @@index([createdAt])
+}
+
+/// User profile keyed by wallet address
+model UserProfile {
+  id         String   @id @default(cuid())
+  /// Wallet address (lowercase, unique)
+  address    String   @unique
+  displayName String?
+  bio        String?
+  avatarUrl  String?
+  websiteUrl String?
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([displayName])
+}
+
+/// Cached aggregate statistics synced from subgraph/chain
+model PlatformStats {
+  id             String   @id @default("singleton")
+  totalCampaigns Int      @default(0)
+  activeCampaigns Int     @default(0)
+  totalContributions BigInt @default(0)
+  totalVolumeWei   String @default("0")
+  updatedAt      DateTime @updatedAt
+}

@@ -19,31 +19,31 @@ This document provides a detailed breakdown of all 6 phases of the Web3 Crowdfun
 ### Tasks
 
 #### 1.1 Environment Setup
-- [ ] Install Node.js (v18+) and npm/yarn
-- [ ] Install Git and configure GitHub
-- [ ] Install VS Code with Solidity extensions
-- [ ] Set up MetaMask wallet
-- [ ] Get Sepolia testnet ETH from faucets
+- [x] Install Node.js (v20+ LTS) and npm/yarn/pnpm
+- [x] Install Git and configure GitHub
+- [x] Install VS Code with Solidity extensions
+- [ ] Set up MetaMask wallet *(user-side; needed before testnet deploys)*
+- [ ] Get Sepolia testnet ETH from faucets *(user-side)*
 
 #### 1.2 Hardhat Project Initialization
-- [ ] Initialize Hardhat project
-- [ ] Configure networks (localhost, Sepolia)
-- [ ] Install OpenZeppelin contracts
-- [ ] Set up environment variables (.env)
-- [ ] Configure TypeScript (optional)
+- [x] Initialize Hardhat project
+- [x] Configure networks (localhost, Sepolia)
+- [x] Install OpenZeppelin contracts (v5)
+- [x] Set up environment variables (.env.example committed, .env gitignored)
+- [x] Configure JavaScript toolchain (TypeScript optional)
 
 #### 1.3 Project Structure Setup
-- [ ] Create directory structure
-- [ ] Initialize Git repository
-- [ ] Set up .gitignore
-- [ ] Create basic README files
-- [ ] Set up ESLint and Prettier
+- [x] Create directory structure (contracts/ backend/ frontend/ subgraph/ docs/)
+- [x] Initialize Git repository
+- [x] Set up .gitignore
+- [x] Create basic README files
+- [ ] Set up ESLint and Prettier *(deferred to Phase 3/5 tooling)*
 
 #### 1.4 Documentation
-- [ ] Architecture diagrams
-- [ ] Contract interaction flows
-- [ ] Data models
-- [ ] API specifications (preliminary)
+- [x] Architecture diagrams
+- [x] Contract interaction flows
+- [x] Data models
+- [x] API specifications (preliminary)
 
 ### Deliverables
 - ✅ Working Hardhat environment
@@ -74,50 +74,59 @@ This document provides a detailed breakdown of all 6 phases of the Web3 Crowdfun
 ### Tasks
 
 #### 2.1 Contract Design
-- [ ] Define CrowdfundingFactory contract interface
-- [ ] Define Campaign contract interface
-- [ ] Design event structures
-- [ ] Plan storage layout for gas optimization
+- [x] Define CrowdfundingFactory contract interface
+- [x] Define Campaign contract interface
+- [x] Design event structures
+- [x] Plan storage layout for gas optimization
 
 #### 2.2 CrowdfundingFactory Contract
-- [ ] Implement campaign creation function
-- [ ] Track deployed campaigns
-- [ ] Emit creation events
-- [ ] Add campaign retrieval functions
+- [x] Implement campaign creation function
+- [x] Track deployed campaigns
+- [x] Emit creation events
+- [x] Add campaign retrieval functions
+- [x] **Upgrade**: EIP-1167 minimal-proxy clones via CREATE2 (`predictNextCampaignAddress()`) — ~80% cheaper campaign deployment
+- [x] **Upgrade**: Shared `campaignImplementation` deployed once in constructor
 
 #### 2.3 Campaign Contract
-- [ ] Implement contribution function (payable)
-- [ ] Implement refund logic
-- [ ] Implement withdrawal function for creator
-- [ ] Add campaign deadline logic
-- [ ] Add funding goal checks
-- [ ] Implement campaign state management
-- [ ] Add contribution tracking
+- [x] Implement contribution function (payable)
+- [x] Implement refund logic (pull-based)
+- [x] Implement withdrawal function for creator
+- [x] Add campaign deadline logic
+- [x] Add funding goal checks
+- [x] Implement campaign state management (0 Active / 1 Successful / 2 Failed / 3 Cancelled)
+- [x] Add contribution tracking
+- [x] **Upgrade**: Minimal-proxy friendly `initialize()` pattern (no constructor args)
+- [x] **Upgrade**: Creator `cancel()` with immediate contributor refunds
+- [x] **Upgrade**: `totalRefunded` analytics counter
 
 #### 2.4 Events & Modifiers
-- [ ] Define all events (CampaignCreated, ContributionMade, etc.)
-- [ ] Create reusable modifiers (onlyCreator, campaignActive, etc.)
-- [ ] Implement access control
+- [x] Define all events (CampaignCreated, ContributionMade, GoalReached, WithdrawalMade, RefundClaimed, CampaignCancelled)
+- [x] Create reusable modifiers (onlyCreator, campaignActive, afterDeadline)
+- [x] Implement access control
+- [x] **Upgrade**: Migrated require strings → gas-optimized **custom errors**
 
 #### 2.5 Testing
-- [ ] Unit tests for CrowdfundingFactory (>90% coverage)
-- [ ] Unit tests for Campaign (>90% coverage)
-- [ ] Integration tests for full workflows
-- [ ] Edge case testing
-- [ ] Gas usage analysis
+- [x] Unit tests for CrowdfundingFactory (100% stmts, 100% funcs)
+- [x] Unit tests for Campaign (98% stmts, 100% funcs)
+- [x] Integration tests for full workflows (create→contribute→withdraw, create→cancel→refund)
+- [x] Edge case testing (over-contribution, double refund, re-initialization, direct ETH transfer rejection)
+- [x] Gas usage analysis (campaign deploy ~261-295k gas via clone)
+- **Result**: 73 tests passing, 98.9% statement coverage, 100% line coverage
 
 #### 2.6 Security & Optimization
-- [ ] Implement reentrancy guards
-- [ ] Checks-effects-interactions pattern
-- [ ] Gas optimization pass
-- [ ] Security checklist review
-- [ ] Slither/Mythril analysis (optional)
+- [x] Implement reentrancy guards (OZ v5 ReentrancyGuard)
+- [x] Checks-effects-interactions pattern (state updated before transfers)
+- [x] Gas optimization pass (custom errors, clones, unchecked loops)
+- [x] Security checklist review
+- [x] **Slither static analysis** — 0 high/medium issues; remediations + accepted findings documented in [docs/security/SLITHER_REPORT.md](docs/security/SLITHER_REPORT.md)
 
 #### 2.7 Deployment Scripts
-- [ ] Local deployment script
-- [ ] Testnet deployment script
-- [ ] Verification script for Etherscan
-- [ ] Deployment documentation
+- [x] Local deployment script
+- [x] **Hardhat Ignition module** (`ignition/modules/CrowdfundingFactory.js`) — declarative deploys, verified on local network
+- [ ] Testnet deployment script *(ready — needs Sepolia RPC + funded key)*
+- [x] Verification script for Etherscan (`scripts/verify.js`, reads deployment artifact, auto-skip on local networks)
+- [x] Deployment documentation
+- [x] npm scripts: `deploy:sepolia`, `deploy:ignition:sepolia`, `verify:sepolia`
 
 ### Deliverables
 - ✅ Complete smart contract implementation
@@ -151,11 +160,14 @@ contracts/src/
 
 ---
 
-## Phase 3: Backend & Off-Chain Services 🔧
+## Phase 3: Backend & Off-Chain Services 🔨
 
+**Status**: In progress — scaffolding with the modernized stack
 **Duration**: 1 week
 **Difficulty**: Intermediate
-**Prerequisites**: Node.js/Express knowledge, Phase 2 complete
+**Prerequisites**: Node.js 20+/TypeScript knowledge, Phase 2 complete
+
+> **Modernization note (Aug 2026)**: Stack updated from Express → **Hono** (TypeScript-first, Web-standard APIs), Prisma stays as ORM. NFT.Storage is deprecated for new uploads — **Pinata** is the primary IPFS provider.
 
 ### Objectives
 - Build REST API for metadata and off-chain data
@@ -254,43 +266,44 @@ backend/
 ### Tasks
 
 #### 4.1 Subgraph Setup
-- [ ] Install Graph CLI
-- [ ] Initialize subgraph project
-- [ ] Configure subgraph.yaml manifest
-- [ ] Set up network configuration
+- [x] Install Graph CLI (local devDependency: `@graphprotocol/graph-cli@^0.97`)
+- [x] Initialize subgraph project
+- [x] Configure subgraph.yaml manifest (generated from `subgraph.template.yaml`)
+- [x] Set up network configuration (`networks.json` + `scripts/configure.js`, auto-reads `contracts/deployments/`)
 
 #### 4.2 Schema Design
-- [ ] Define Campaign entity
-- [ ] Define Contribution entity
-- [ ] Define User entity
-- [ ] Define Campaign statistics
-- [ ] Add relationships between entities
+- [x] Define Campaign entity (funds tracking incl. refundedAmount/withdrawnAmount, flags, contributor list)
+- [x] Define Contribution entity (immutable record)
+- [x] Define User entity (created campaigns + backed totals)
+- [x] Define Platform statistics (PlatformStats singleton)
+- [x] Add relationships between entities (@derivedFrom)
 
 #### 4.3 Event Handlers
-- [ ] CampaignCreated handler
-- [ ] ContributionMade handler
-- [ ] WithdrawalMade handler
-- [ ] RefundClaimed handler
-- [ ] CampaignCancelled handler
+- [x] CampaignCreated handler (creates User + Campaign, starts dynamic data source)
+- [x] ContributionMade handler (distinct-contributor detection, user/stats aggregation)
+- [x] WithdrawalMade handler (immutable record + campaign/stat totals)
+- [x] RefundClaimed handler
+- [x] CampaignCancelled handler
+- [x] GoalReached handler (bonus: marks successful campaigns)
 
 #### 4.4 Data Transformation
-- [ ] Calculate derived fields
-- [ ] Aggregate statistics
-- [ ] Handle edge cases
-- [ ] Implement data validation
+- [x] Calculate derived fields (contributorsCount via distinct list, totalRefunded rollups)
+- [x] Aggregate statistics (PlatformStats singleton updated on every event)
+- [x] Handle edge cases (first-contribution timestamps, missing entities guarded)
+- [x] Implement data validation (null-guards on entity loads)
 
 #### 4.5 Testing & Deployment
-- [ ] Local testing with graph-node
-- [ ] Test queries
-- [ ] Deploy to Subgraph Studio
+- [ ] Local testing with graph-node *(requires Docker)*
+- [ ] Test queries *(pending live endpoint)*
+- [ ] Deploy to Subgraph Studio *(requires deploy key + real Sepolia factory address)*
 - [ ] Monitor indexing status
 
 #### 4.6 Query Development
-- [ ] Campaign list queries
-- [ ] Campaign details query
-- [ ] User contribution history
-- [ ] Statistics and analytics queries
-- [ ] Search and filter queries
+- [x] Campaign list queries (with active filter example)
+- [x] Campaign details query (contributions + refunds nested)
+- [x] User contribution history
+- [x] Statistics and analytics queries
+- [ ] Search and filter queries *(frontend phase — text search needs IPFS metadata join)*
 
 ### Deliverables
 - ✅ Complete subgraph implementation
@@ -520,16 +533,16 @@ frontend/
 
 ## 📊 Phase Summary
 
-| Phase | Duration | Difficulty | Key Deliverable |
-|-------|----------|------------|-----------------|
-| 1 | 1 week | Beginner | Dev environment |
-| 2 | 2 weeks | Intermediate | Smart contracts |
-| 3 | 1 week | Intermediate | Backend API |
-| 4 | 1 week | Intermediate | Subgraph |
-| 5 | 2 weeks | Advanced | Frontend |
-| 6 | 1 week | Advanced | Deployed DApp |
+| Phase | Duration | Difficulty | Key Deliverable | Status |
+|-------|----------|------------|-----------------|--------|
+| 1 | 1 week | Beginner | Dev environment | ✅ Complete |
+| 2 | 2 weeks | Intermediate | Smart contracts | ✅ Complete (73 tests, 98.9% coverage) |
+| 3 | 1 week | Intermediate | Backend API | 🔨 In progress |
+| 4 | 1 week | Intermediate | Subgraph | 🟢 Built locally (codegen + build pass); deploy needs Studio key |
+| 5 | 2 weeks | Advanced | Frontend | ⬜ Not started |
+| 6 | 1 week | Advanced | Deployed DApp | ⬜ Not started |
 
-**Total**: 6-8 weeks for complete project
+**Total**: 6-8 weeks for complete project · ~3 weeks of work completed
 
 ---
 

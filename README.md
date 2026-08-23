@@ -37,15 +37,15 @@ crowdfunding-dapp/
 
 ## 🚦 Current Status
 
-**Phase**: Setup & Planning
+**Phase**: 2 complete · Phase 3 in progress
 **Branch**: `claude/web3-full-stack-project-01C3Mmzt11rQUZVqybLf2Fes`
 
 ## 📋 Phase Checklist
 
-- [ ] **Phase 1**: Architecture & Setup
-- [ ] **Phase 2**: Smart Contracts Development
-- [ ] **Phase 3**: Backend & Off-Chain Services
-- [ ] **Phase 4**: Indexing & Subgraph
+- [x] **Phase 1**: Architecture & Setup
+- [x] **Phase 2**: Smart Contracts Development *(73 tests, 98.9% coverage, Slither-clean)*
+- [ ] **Phase 3**: Backend & Off-Chain Services *(scaffolded: Hono + Prisma + Zod, health/campaigns/IPFS routes)*
+- [ ] **Phase 4**: Indexing & Subgraph *(built: schema, handlers, codegen+build verified; deploy needs Studio key)*
 - [ ] **Phase 5**: Frontend Development
 - [ ] **Phase 6**: Testing & Deployment
 

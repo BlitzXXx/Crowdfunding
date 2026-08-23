@@ -4,6 +4,8 @@ const { time } = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("Campaign", function () {
   let Campaign;
+  let campaignInterface;
+  let factory;
   let campaign;
   let creator;
   let contributor1;
@@ -14,19 +16,31 @@ describe("Campaign", function () {
   const DURATION = 30 * 24 * 60 * 60; // 30 days
   const IPFS_HASH = "QmTest123456789";
 
+  /**
+   * Creates a campaign through the factory and returns it as an attached contract.
+   * Uses staticCall to grab the deterministic clone address without parsing logs.
+   */
+  async function createCampaignViaFactory(signer, goal = GOAL, duration = DURATION, hash = IPFS_HASH) {
+    const address = await factory.connect(signer).createCampaign.staticCall(goal, duration, hash);
+    await factory.connect(signer).createCampaign(goal, duration, hash);
+    return Campaign.attach(address);
+  }
+
+  before(async function () {
+    Campaign = await ethers.getContractFactory("Campaign");
+    campaignInterface = Campaign.interface;
+  });
+
   beforeEach(async function () {
     [creator, contributor1, contributor2, contributor3] = await ethers.getSigners();
 
-    Campaign = await ethers.getContractFactory("Campaign");
-    campaign = await Campaign.deploy(
-      creator.address,
-      GOAL,
-      DURATION,
-      IPFS_HASH
-    );
+    const Factory = await ethers.getContractFactory("CrowdfundingFactory");
+    factory = await Factory.deploy();
+
+    campaign = await createCampaignViaFactory(creator);
   });
 
-  describe("Deployment", function () {
+  describe("Initialization", function () {
     it("Should set the correct creator", async function () {
       expect(await campaign.creator()).to.equal(creator.address);
     });
@@ -53,28 +67,28 @@ describe("Campaign", function () {
       expect(await campaign.goalReached()).to.be.false;
     });
 
-    it("Should revert with invalid creator address", async function () {
-      await expect(
-        Campaign.deploy(ethers.ZeroAddress, GOAL, DURATION, IPFS_HASH)
-      ).to.be.revertedWith("Invalid creator address");
+    it("Should not be cancelled initially", async function () {
+      expect(await campaign.cancelled()).to.be.false;
     });
 
-    it("Should revert with zero goal", async function () {
+    it("Should prevent re-initialization", async function () {
       await expect(
-        Campaign.deploy(creator.address, 0, DURATION, IPFS_HASH)
-      ).to.be.revertedWith("Goal must be greater than 0");
+        campaign.initialize(creator.address, GOAL, DURATION, IPFS_HASH)
+      ).to.be.revertedWithCustomError({ interface: campaignInterface }, "InvalidInitialization");
     });
 
-    it("Should revert with zero duration", async function () {
-      await expect(
-        Campaign.deploy(creator.address, GOAL, 0, IPFS_HASH)
-      ).to.be.revertedWith("Duration must be greater than 0");
-    });
+    it("Should reject invalid params during creation", async function () {
+      const cases = [
+        [0, DURATION, IPFS_HASH],
+        [GOAL, 0, IPFS_HASH],
+        [GOAL, DURATION, ""],
+      ];
 
-    it("Should revert with empty IPFS hash", async function () {
-      await expect(
-        Campaign.deploy(creator.address, GOAL, DURATION, "")
-      ).to.be.revertedWith("IPFS hash cannot be empty");
+      for (const [goalArg, durationArg, hashArg] of cases) {
+        await expect(
+          factory.createCampaign.staticCall(goalArg, durationArg, hashArg)
+        ).to.be.reverted;
+      }
     });
   });
 
@@ -125,10 +139,18 @@ describe("Campaign", function () {
       expect(await campaign.goalReached()).to.be.true;
     });
 
+    it("Should accept over-contribution beyond goal", async function () {
+      const amount = ethers.parseEther("12");
+      await campaign.connect(contributor1).contribute({ value: amount });
+
+      expect(await campaign.totalFunds()).to.equal(amount);
+      expect(await campaign.goalReached()).to.be.true;
+    });
+
     it("Should revert on zero contribution", async function () {
       await expect(
         campaign.connect(contributor1).contribute({ value: 0 })
-      ).to.be.revertedWith("Contribution must be greater than 0");
+      ).to.be.revertedWithCustomError(campaign, "ZeroValue");
     });
 
     it("Should revert after deadline", async function () {
@@ -136,7 +158,7 @@ describe("Campaign", function () {
 
       await expect(
         campaign.connect(contributor1).contribute({ value: ethers.parseEther("1") })
-      ).to.be.revertedWith("Campaign has ended");
+      ).to.be.revertedWithCustomError(campaign, "CampaignEnded");
     });
 
     it("Should revert after goal is reached", async function () {
@@ -144,7 +166,15 @@ describe("Campaign", function () {
 
       await expect(
         campaign.connect(contributor2).contribute({ value: ethers.parseEther("1") })
-      ).to.be.revertedWith("Campaign goal already reached");
+      ).to.be.revertedWithCustomError(campaign, "GoalAlreadyReached");
+    });
+
+    it("Should revert after campaign is cancelled", async function () {
+      await campaign.connect(creator).cancel();
+
+      await expect(
+        campaign.connect(contributor1).contribute({ value: ethers.parseEther("1") })
+      ).to.be.revertedWithCustomError(campaign, "CampaignCancelledError");
     });
   });
 
@@ -170,25 +200,43 @@ describe("Campaign", function () {
       expect(await campaign.fundsWithdrawn()).to.be.true;
     });
 
+    it("Should include over-contributions in withdrawal", async function () {
+      // Fresh campaign; single contribution exceeding the goal
+      const freshCampaign = await createCampaignViaFactory(
+        creator,
+        GOAL,
+        DURATION,
+        "QmOverGoal"
+      );
+
+      const amount = GOAL + ethers.parseEther("3");
+      await freshCampaign.connect(contributor2).contribute({ value: amount });
+
+      const tx = await freshCampaign.connect(creator).withdraw();
+      await expect(tx)
+        .to.emit(freshCampaign, "WithdrawalMade")
+        .withArgs(creator.address, amount);
+    });
+
     it("Should revert if non-creator tries to withdraw", async function () {
       await expect(
         campaign.connect(contributor1).withdraw()
-      ).to.be.revertedWith("Only creator can call this function");
+      ).to.be.revertedWithCustomError(campaign, "NotCreator");
     });
 
     it("Should revert if goal not reached", async function () {
-      const partialCampaign = await Campaign.deploy(
-        creator.address,
+      const partialCampaign = await createCampaignViaFactory(
+        creator,
         GOAL,
         DURATION,
-        IPFS_HASH
+        "QmPartial"
       );
 
       await partialCampaign.connect(contributor1).contribute({ value: ethers.parseEther("5") });
 
       await expect(
         partialCampaign.connect(creator).withdraw()
-      ).to.be.revertedWith("Goal not reached");
+      ).to.be.revertedWithCustomError(partialCampaign, "GoalNotReached");
     });
 
     it("Should revert if funds already withdrawn", async function () {
@@ -196,7 +244,7 @@ describe("Campaign", function () {
 
       await expect(
         campaign.connect(creator).withdraw()
-      ).to.be.revertedWith("Funds already withdrawn");
+      ).to.be.revertedWithCustomError(campaign, "AlreadyWithdrawn");
     });
   });
 
@@ -225,41 +273,42 @@ describe("Campaign", function () {
       const balanceAfter = await ethers.provider.getBalance(contributor1.address);
       expect(balanceAfter).to.equal(balanceBefore + contributionAmount - gasUsed);
       expect(await campaign.contributions(contributor1.address)).to.equal(0);
+      expect(await campaign.totalRefunded()).to.equal(contributionAmount);
     });
 
     it("Should revert refund before deadline", async function () {
-      const activeCampaign = await Campaign.deploy(
-        creator.address,
+      const activeCampaign = await createCampaignViaFactory(
+        creator,
         GOAL,
         DURATION,
-        IPFS_HASH
+        "QmActive"
       );
       await activeCampaign.connect(contributor1).contribute({ value: ethers.parseEther("1") });
 
       await expect(
         activeCampaign.connect(contributor1).refund()
-      ).to.be.revertedWith("Campaign is still active");
+      ).to.be.revertedWithCustomError(activeCampaign, "RefundsLocked");
     });
 
     it("Should revert refund if goal was reached", async function () {
-      const successfulCampaign = await Campaign.deploy(
-        creator.address,
+      const successfulCampaign = await createCampaignViaFactory(
+        creator,
         GOAL,
         DURATION,
-        IPFS_HASH
+        "QmSuccessful"
       );
       await successfulCampaign.connect(contributor1).contribute({ value: GOAL });
       await time.increase(DURATION + 1);
 
       await expect(
         successfulCampaign.connect(contributor1).refund()
-      ).to.be.revertedWith("Goal was reached, no refunds");
+      ).to.be.revertedWithCustomError(successfulCampaign, "RefundsLocked");
     });
 
     it("Should revert if no contribution to refund", async function () {
       await expect(
         campaign.connect(contributor3).refund()
-      ).to.be.revertedWith("No contribution to refund");
+      ).to.be.revertedWithCustomError(campaign, "NothingToRefund");
     });
 
     it("Should revert double refund", async function () {
@@ -267,7 +316,71 @@ describe("Campaign", function () {
 
       await expect(
         campaign.connect(contributor1).refund()
-      ).to.be.revertedWith("No contribution to refund");
+      ).to.be.revertedWithCustomError(campaign, "NothingToRefund");
+    });
+  });
+
+  describe("Cancellation", function () {
+    beforeEach(async function () {
+      await campaign.connect(contributor1).contribute({ value: ethers.parseEther("3") });
+      await campaign.connect(contributor2).contribute({ value: ethers.parseEther("2") });
+    });
+
+    it("Should allow creator to cancel active campaign", async function () {
+      await expect(campaign.connect(creator).cancel())
+        .to.emit(campaign, "CampaignCancelled")
+        .withArgs(creator.address);
+
+      expect(await campaign.cancelled()).to.be.true;
+      expect(await campaign.getState()).to.equal(3); // Cancelled
+    });
+
+    it("Should allow immediate refunds after cancellation", async function () {
+      await campaign.connect(creator).cancel();
+
+      const balanceBefore = await ethers.provider.getBalance(contributor1.address);
+      const contributionAmount = ethers.parseEther("3");
+
+      const tx = await campaign.connect(contributor1).refund();
+      const receipt = await tx.wait();
+      const gasUsed = receipt.gasUsed * receipt.gasPrice;
+
+      await expect(tx)
+        .to.emit(campaign, "RefundClaimed")
+        .withArgs(contributor1.address, contributionAmount);
+
+      const balanceAfter = await ethers.provider.getBalance(contributor1.address);
+      expect(balanceAfter).to.equal(balanceBefore + contributionAmount - gasUsed);
+    });
+
+    it("Should revert if non-creator tries to cancel", async function () {
+      await expect(
+        campaign.connect(contributor1).cancel()
+      ).to.be.revertedWithCustomError(campaign, "NotCreator");
+    });
+
+    it("Should revert double cancellation", async function () {
+      await campaign.connect(creator).cancel();
+
+      await expect(
+        campaign.connect(creator).cancel()
+      ).to.be.revertedWithCustomError(campaign, "CampaignCancelledError");
+    });
+
+    it("Should revert cancellation after goal is reached", async function () {
+      await campaign.connect(contributor3).contribute({ value: GOAL });
+
+      await expect(
+        campaign.connect(creator).cancel()
+      ).to.be.revertedWithCustomError(campaign, "GoalAlreadyReached");
+    });
+
+    it("Should revert cancellation after deadline", async function () {
+      await time.increase(DURATION + 1);
+
+      await expect(
+        campaign.connect(creator).cancel()
+      ).to.be.revertedWithCustomError(campaign, "CampaignEnded");
     });
   });
 
@@ -280,13 +393,13 @@ describe("Campaign", function () {
     it("Should return correct campaign details", async function () {
       const details = await campaign.getCampaignDetails();
 
-      expect(details._creator).to.equal(creator.address);
-      expect(details._goal).to.equal(GOAL);
-      expect(details._totalFunds).to.equal(ethers.parseEther("5"));
-      expect(details._goalReached).to.be.false;
-      expect(details._fundsWithdrawn).to.be.false;
-      expect(details._ipfsHash).to.equal(IPFS_HASH);
-      expect(details._contributorsCount).to.equal(2);
+      expect(details.creator_).to.equal(creator.address);
+      expect(details.goal_).to.equal(GOAL);
+      expect(details.totalFunds_).to.equal(ethers.parseEther("5"));
+      expect(details.goalReached_).to.be.false;
+      expect(details.fundsWithdrawn_).to.be.false;
+      expect(details.ipfsHash_).to.equal(IPFS_HASH);
+      expect(details.contributorsCount_).to.equal(2n);
     });
 
     it("Should return correct contributors list", async function () {
@@ -309,6 +422,11 @@ describe("Campaign", function () {
       expect(await campaign.isActive()).to.be.false;
     });
 
+    it("Should return false for isActive when cancelled", async function () {
+      await campaign.connect(creator).cancel();
+      expect(await campaign.isActive()).to.be.false;
+    });
+
     it("Should return correct state", async function () {
       // Active
       expect(await campaign.getState()).to.equal(0);
@@ -318,11 +436,11 @@ describe("Campaign", function () {
       expect(await campaign.getState()).to.equal(1);
 
       // Failed
-      const failedCampaign = await Campaign.deploy(
-        creator.address,
+      const failedCampaign = await createCampaignViaFactory(
+        creator,
         GOAL,
         DURATION,
-        IPFS_HASH
+        "QmFailed"
       );
       await failedCampaign.connect(contributor1).contribute({ value: ethers.parseEther("5") });
       await time.increase(DURATION + 1);
@@ -342,6 +460,25 @@ describe("Campaign", function () {
 
       await campaign.connect(contributor3).contribute({ value: ethers.parseEther("2.5") });
       expect(await campaign.getProgress()).to.equal(75); // 7.5 ETH / 10 ETH = 75%
+    });
+  });
+
+  describe("Security", function () {
+    it("Should not allow direct ETH transfers to force contributions", async function () {
+      await expect(
+        contributor1.sendTransaction({ to: await campaign.getAddress(), value: ethers.parseEther("1") })
+      ).to.be.rejected;
+    });
+
+    it("Should track totalRefunded accurately across multiple refunds", async function () {
+      await campaign.connect(contributor1).contribute({ value: ethers.parseEther("3") });
+      await campaign.connect(contributor2).contribute({ value: ethers.parseEther("2") });
+      await time.increase(DURATION + 1);
+
+      await campaign.connect(contributor1).refund();
+      await campaign.connect(contributor2).refund();
+
+      expect(await campaign.totalRefunded()).to.equal(ethers.parseEther("5"));
     });
   });
 });
