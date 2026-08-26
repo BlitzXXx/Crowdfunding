@@ -49,6 +49,23 @@ model UserProfile {
   @@index([displayName])
 }
 
+/// Analytics event log
+model AnalyticsEvent {
+  id            String   @id @default(cuid())
+  eventType     String   // campaign_created, contribution, withdrawal, refund, cancellation
+  campaignAddress String?
+  actorAddress  String?
+  value         String?  // wei amount as string for large numbers
+  metadata      String?  // JSON string for extra data
+  blockNumber   BigInt?
+  txHash        String?
+  createdAt     DateTime @default(now())
+
+  @@index([eventType])
+  @@index([campaignAddress])
+  @@index([createdAt])
+}
+
 /// Cached aggregate statistics synced from subgraph/chain
 model PlatformStats {
   id             String   @id @default("singleton")
