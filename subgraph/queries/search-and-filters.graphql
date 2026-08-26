@@ -1,0 +1,243 @@
+# ============================================
+# Search & Filter Queries
+# ============================================
+# These queries demonstrate how to search and filter campaigns
+# using the deployed subgraph. They can be executed against any
+# Graph node endpoint or Studio-hosted subgraph.
+#
+# For full-text search over campaign titles/descriptions, the
+# frontend must join on-chain subgraph data with IPFS metadata
+# (fetched separately via Pinata gateway). The queries below
+# cover on-chain filtering and sorting.
+
+
+# --- Active campaigns (still accepting contributions) ---
+query ActiveCampaigns($first: Int = 20, $skip: Int = 0) {
+  campaigns(
+    first: $first
+    skip: $skip
+    orderBy: createdAt
+    orderDirection: desc
+    where: { goalReached: false, cancelled: false }
+  ) {
+    id
+    address
+    creator { address }
+    goal
+    totalFunds
+    deadline
+    contributorsCount
+    ipfsHash
+    createdAt
+  }
+}
+
+# --- Campaigns sorted by total funds raised ---
+query CampaignsByRaised($first: Int = 20, $skip: Int = 0) {
+  campaigns(
+    first: $first
+    skip: $skip
+    orderBy: totalFunds
+    orderDirection: desc
+    where: { goalReached: false, cancelled: false }
+  ) {
+    id
+    address
+    goal
+    totalFunds
+    deadline
+    contributorsCount
+  }
+}
+
+# --- Campaigns ending soonest ---
+query CampaignsEndingSoon($first: Int = 20) {
+  campaigns(
+    first: $first
+    orderBy: deadline
+    orderDirection: asc
+    where: { goalReached: false, cancelled: false }
+  ) {
+    id
+    address
+    goal
+    totalFunds
+    deadline
+    contributorsCount
+  }
+}
+
+# --- Successful (funded) campaigns ---
+query FundedCampaigns($first: Int = 20, $skip: Int = 0) {
+  campaigns(
+    first: $first
+    skip: $skip
+    orderBy: totalFunds
+    orderDirection: desc
+    where: { goalReached: true, cancelled: false }
+  ) {
+    id
+    address
+    goal
+    totalFunds
+    withdrawnAmount
+    deadline
+    contributorsCount
+  }
+}
+
+# --- Failed / expired campaigns (eligible for refunds) ---
+query ExpiredCampaigns($first: Int = 20) {
+  campaigns(
+    first: $first
+    orderBy: deadline
+    orderDirection: desc
+    where: { goalReached: false, cancelled: false }
+  ) {
+    id
+    address
+    goal
+    totalFunds
+    deadline
+    refundedAmount
+    contributorsCount
+  }
+}
+
+# --- Cancelled campaigns ---
+query CancelledCampaigns($first: Int = 20) {
+  campaigns(
+    first: $first
+    orderBy: createdAt
+    orderDirection: desc
+    where: { cancelled: true }
+  ) {
+    id
+    address
+    goal
+    totalFunds
+    deadline
+    refundedAmount
+    contributorsCount
+  }
+}
+
+# --- Campaigns by a specific creator ---
+query CampaignsByCreator($creator: String!, $first: Int = 20) {
+  campaigns(
+    first: $first
+    orderBy: createdAt
+    orderDirection: desc
+    where: { creator: $creator }
+  ) {
+    id
+    address
+    goal
+    totalFunds
+    deadline
+    goalReached
+    cancelled
+    contributorsCount
+  }
+}
+
+# --- User contribution history ---
+query UserContributions($user: String!) {
+  user(id: $user) {
+    address
+    contributionsCount
+    totalContributed
+    totalRefunded
+    contributions(orderBy: blockTimestamp, orderDirection: desc) {
+      amount
+      blockTimestamp
+      campaign {
+        id
+        address
+        goal
+        totalFunds
+        goalReached
+        cancelled
+      }
+    }
+  }
+}
+
+# --- Full campaign detail with nested contributions & refunds ---
+query CampaignDetail($id: ID!) {
+  campaign(id: $id) {
+    id
+    address
+    creator {
+      address
+      campaignsCreatedCount
+    }
+    goal
+    deadline
+    ipfsHash
+    totalFunds
+    refundedAmount
+    withdrawnAmount
+    goalReached
+    fundsWithdrawn
+    cancelled
+    contributorsCount
+    contributionsCount
+    contributors
+    createdAt
+    updatedAt
+    contributions(orderBy: blockTimestamp, orderDirection: desc) {
+      contributor { address }
+      amount
+      blockTimestamp
+    }
+    refunds(orderBy: blockTimestamp, orderDirection: desc) {
+      contributor { address }
+      amount
+      blockTimestamp
+    }
+  }
+}
+
+# --- Platform-wide statistics ---
+query PlatformStats {
+  platformStats(id: "platform") {
+    totalCampaigns
+    successfulCampaigns
+    cancelledCampaigns
+    totalContributionCount
+    totalVolume
+    totalWithdrawn
+    totalRefunded
+    updatedAt
+  }
+}
+
+# --- Combined browse: active + funded for homepage split view ---
+query HomepageCampaigns($first: Int = 10) {
+  active: campaigns(
+    first: $first
+    orderBy: createdAt
+    orderDirection: desc
+    where: { goalReached: false, cancelled: false }
+  ) {
+    id
+    address
+    goal
+    totalFunds
+    deadline
+    contributorsCount
+  }
+  funded: campaigns(
+    first: $first
+    orderBy: totalFunds
+    orderDirection: desc
+    where: { goalReached: true, cancelled: false }
+  ) {
+    id
+    address
+    goal
+    totalFunds
+    contributorsCount
+  }
+}

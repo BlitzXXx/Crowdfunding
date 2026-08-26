@@ -4,12 +4,17 @@ import { Spinner, Card, ProgressBar, Badge } from "@/components/ui";
 import { ContributeCard } from "@/components/ContributeCard";
 import { StateBadge } from "@/components/CampaignCard";
 import { useCampaign } from "@/hooks/useCampaigns";
+import {
+  OptimisticCampaignProvider,
+  useDisplayDetails,
+} from "@/hooks/useOptimisticCampaign";
 import { daysLeft, formatDate, formatEth, progressPercent, shortAddress } from "@/lib/format";
 import { CAMPAIGN_STATE } from "@/config/contracts";
 
 export default function CampaignDetailPage() {
   const { address } = useParams<{ address: `0x${string}` }>();
-  const { details, isLoading } = useCampaign(address as `0x${string}` | undefined);
+  const { details: rawDetails, isLoading } = useCampaign(address as `0x${string}` | undefined);
+  const details = useDisplayDetails(rawDetails);
 
   if (isLoading) return <Spinner label="Loading campaign…" />;
   if (!details || details.creator === "0x0000000000000000000000000000000000000000") {
@@ -33,7 +38,8 @@ export default function CampaignDetailPage() {
       </Link>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-        <Card className="p-6">
+        <OptimisticCampaignProvider>
+          <Card className="p-6">
           <div className="flex items-center gap-3">
             <StateBadge details={details} />
             {state === CAMPAIGN_STATE.ACTIVE && <Badge tone="amber">{daysLeft(details.deadline)} days left</Badge>}
@@ -102,7 +108,8 @@ export default function CampaignDetailPage() {
           </div>
         </Card>
 
-        <ContributeCard details={details} />
+        <ContributeCard details={details!} />
+        </OptimisticCampaignProvider>
       </div>
     </div>
   );
