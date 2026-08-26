@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAccount } from "wagmi";
 import { parseEther } from "viem";
 import { Rocket } from "lucide-react";
 import { Alert, Button, Card, Input, Label, Textarea } from "@/components/ui";
+import { useToast } from "@/components/toast";
 import { useCreateCampaign, usePredictedNextAddress } from "@/hooks/useActions";
 import { useInvalidateOnSuccess } from "@/hooks/useInvalidateOnSuccess";
 import { pinCampaignMetadata } from "@/lib/api";
@@ -12,6 +13,7 @@ const CATEGORIES = ["technology", "art", "music", "film", "games", "community", 
 
 export default function CreateCampaignPage() {
   const { address: account } = useAccount();
+  const toast = useToast();
   const create = useCreateCampaign();
   const predictAddress = usePredictedNextAddress();
 
@@ -26,6 +28,14 @@ export default function CreateCampaignPage() {
   const [predicted, setPredicted] = useState<`0x${string}` | null>(null);
 
   useInvalidateOnSuccess(create.phase);
+
+  const successToasted = useRef(false);
+  useEffect(() => {
+    if (create.receipt.isSuccess && !successToasted.current) {
+      successToasted.current = true;
+      toast.success("Campaign contract deployed!");
+    }
+  }, [create.receipt.isSuccess, toast]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -57,6 +67,7 @@ export default function CreateCampaignPage() {
       );
 
       if (tx) {
+        toast.info("Transaction submitted — waiting for confirmation…");
         setTimeout(async () => {
           try {
             setPredicted(await predictAddress());
@@ -64,6 +75,8 @@ export default function CreateCampaignPage() {
             /* non-critical */
           }
         }, 2_000);
+      } else if (create.error) {
+        toast.error(create.error);
       }
     } finally {
       setSubmitting(false);

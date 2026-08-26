@@ -35,6 +35,27 @@ describe("API", () => {
     });
   });
 
+  describe("GET /openapi.json", () => {
+    it("serves a valid OpenAPI document", async () => {
+      const res = await app.request("/openapi.json");
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.openapi).toBe("3.1.0");
+      expect(body.info.title).toBe("CrowdChain Backend API");
+      expect(Object.keys(body.paths)).toContain("/api/v1/campaigns");
+    });
+  });
+
+  describe("GET /docs", () => {
+    it("serves the Swagger UI page", async () => {
+      const res = await app.request("/docs");
+
+      expect(res.status).toBe(200);
+      expect(await res.text()).toContain("swagger-ui");
+    });
+  });
+
   describe("unknown routes", () => {
     it("returns 404 JSON", async () => {
       const res = await app.request("/nope");

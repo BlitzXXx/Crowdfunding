@@ -44,10 +44,10 @@ crowdfunding-dapp/
 
 - [x] **Phase 1**: Architecture & Setup
 - [x] **Phase 2**: Smart Contracts Development *(73 tests, 98.9% coverage, Slither-clean)*
-- [ ] **Phase 3**: Backend & Off-Chain Services *(scaffolded: Hono + Prisma + Zod, health/campaigns/IPFS routes)*
+- [ ] **Phase 3**: Backend & Off-Chain Services *(core done: Hono + Prisma + Zod, rate limiting, OpenAPI docs at /docs — live DB/IPFS keys pending)*
 - [ ] **Phase 4**: Indexing & Subgraph *(built: schema, handlers, codegen+build verified; deploy needs Studio key)*
-- [ ] **Phase 5**: Frontend Development
-- [ ] **Phase 6**: Testing & Deployment
+- [ ] **Phase 5**: Frontend Development *(built: React 19 + wagmi v2 + Tailwind v4; all core pages; build passes)*
+- [ ] **Phase 6**: Testing & Deployment *(keyless prep done: CI pipeline, Playwright E2E green, OpenAPI docs, user + troubleshooting guides, deployment checklist)*
 
 ## 🛠️ Tech Stack
 
@@ -56,8 +56,8 @@ crowdfunding-dapp/
 | **Blockchain** | Ethereum, Solidity, Hardhat |
 | **Indexing** | The Graph, GraphQL |
 | **Storage** | IPFS (Pinata) |
-| **Backend** | Node.js, Express, PostgreSQL |
-| **Frontend** | React, ethers.js, TailwindCSS |
+| **Backend** | Node.js, Hono, PostgreSQL, Prisma |
+| **Frontend** | React, wagmi/viem, TailwindCSS |
 | **Testing** | Hardhat, Chai, React Testing Library |
 
 ## 🎓 Learning Path

@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { env } from "../env.js";
 import {
   gatewayUrl,
   isIpfsConfigured,

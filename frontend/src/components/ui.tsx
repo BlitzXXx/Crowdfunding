@@ -98,6 +98,32 @@ export function Spinner({ label }: { label?: string }) {
   );
 }
 
+export function Skeleton({ className = "" }: { className?: string }) {
+  return <div className={`animate-pulse rounded-lg bg-slate-800/70 ${className}`} />;
+}
+
+export function CampaignCardSkeleton() {
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+      <div className="mb-3 flex items-start justify-between">
+        <Skeleton className="h-10 w-10" />
+        <Skeleton className="h-5 w-16" />
+      </div>
+      <Skeleton className="h-3 w-32" />
+      <div className="mt-4 flex items-baseline justify-between">
+        <Skeleton className="h-6 w-24" />
+        <Skeleton className="h-3 w-20" />
+      </div>
+      <Skeleton className="mt-3 h-2 w-full" />
+      <div className="mt-4 flex items-center justify-between border-t border-slate-800 pt-3">
+        <Skeleton className="h-3 w-12" />
+        <Skeleton className="h-3 w-12" />
+        <Skeleton className="h-3 w-16" />
+      </div>
+    </div>
+  );
+}
+
 export function ProgressBar({ percent }: { percent: number }) {
   return (
     <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
