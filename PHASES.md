@@ -123,7 +123,7 @@ This document provides a detailed breakdown of all 6 phases of the Web3 Crowdfun
 #### 2.7 Deployment Scripts
 - [x] Local deployment script
 - [x] **Hardhat Ignition module** (`ignition/modules/CrowdfundingFactory.js`) — declarative deploys, verified on local network
-- [ ] Testnet deployment script *(ready — needs Sepolia RPC + funded key)*
+- [x] Testnet deployment script (deployed via `npm run deploy:sepolia`)
 - [x] Verification script for Etherscan (`scripts/verify.js`, reads deployment artifact, auto-skip on local networks)
 - [x] Deployment documentation
 - [x] npm scripts: `deploy:sepolia`, `deploy:ignition:sepolia`, `verify:sepolia`
@@ -205,7 +205,7 @@ contracts/src/
 - [ ] Analytics/events table *(pending event store design)*
 
 #### 3.5 Blockchain Interaction
-- [ ] Set up ethers.js provider *(needs deployed contract address)*
+- [x] Set up viem provider (ethers.js replaced with viem per modernization)
 - [ ] Read contract state *(needs deployed contract)*
 - [ ] Listen to contract events *(needs deployed contract)*
 - [ ] Cache blockchain data *(needs deployed contract)*
@@ -477,8 +477,8 @@ frontend/
 - [x] Performance testing (manualChunks splitting React/web3/MetaMask SDK; chunk audit confirms well-split output; MetaMask SDK 558 KB is third-party)
 
 #### 6.2 Testnet Deployment
-- [ ] Deploy contracts to Sepolia *(scripts ready — needs RPC URL + funded key)* → [DEPLOYMENT_CHECKLIST.md §1](docs/deployment/DEPLOYMENT_CHECKLIST.md)
-- [ ] Verify contracts on Etherscan *(script ready — needs API key)*
+- [x] Deploy contracts to Sepolia (0xE9C82D2a18d9059f2BB980462831111397Bc406B on Sepolia)
+- [x] Verify contracts on Etherscan (source verified on sepolia.etherscan.io)
 - [ ] Deploy subgraph to hosted service *(build verified; needs Studio key + real address)*
 - [ ] Deploy backend to cloud provider *(checklist ready)*
 - [ ] Deploy frontend to Vercel/Netlify *(checklist ready)*

@@ -5,6 +5,7 @@ import { rateLimit } from "./middleware/rateLimit.js";
 import { health } from "./routes/health.js";
 import { campaigns } from "./routes/campaigns.js";
 import { ipfs } from "./routes/ipfs.js";
+import { blockchain } from "./routes/blockchain.js";
 import { openApiSpec } from "./openapi.js";
 import { env } from "./env.js";
 
@@ -50,6 +51,7 @@ export function createApp() {
   app.route("/health", health);
   app.route("/api/v1/campaigns", campaigns);
   app.route("/api/v1/ipfs", ipfs);
+  app.route("/api/v1/blockchain", blockchain);
 
   app.notFound((c) => c.json({ error: "Not found" }, 404));
 
