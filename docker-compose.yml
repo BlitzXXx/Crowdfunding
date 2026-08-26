@@ -1,0 +1,63 @@
+# CrowdChain local development infrastructure
+# Usage: docker compose up -d
+# Status: docker compose ps
+# Logs:   docker compose logs -f [service]
+# Stop:   docker compose down -v  (-v removes volumes)
+
+services:
+  # ── PostgreSQL ──────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: crowdchain
+      POSTGRES_PASSWORD: crowdchain_dev
+      POSTGRES_DB: crowdchain
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crowdchain"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Graph Node (for local subgraph testing) ─────────────────
+  graph-node:
+    image: graphprotocol/graph-node:v0.35.0
+    restart: unless-stopped
+    ports:
+      - "8000:8000"   # GraphQL HTTP
+      - "8020:8020"   # JSON-RPC (for graph deploy)
+      - "8030:8030"   # Indexing-status API
+      - "8040:8040"   # Metrics
+    environment:
+      postgres_host: postgres
+      postgres_port: 5432
+      postgres_user: crowdchain
+      postgres_pass: crowdchain_dev
+      postgres_db: graph-node
+      ipfs: "https://ipfs.io"          # Public IPFS gateway (swap for local if available)
+      ethereum: "localhost:http://host.docker.internal:8545"  # Hardhat node on host
+      GRAPH_LOG: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # host.docker.internal reaches the host machine's ports (Docker Desktop / Linux with extra_hosts)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ── Hardhat Node (on-chain devnet) ──────────────────────────
+  # Uncomment to run Hardhat inside Docker instead of on the host:
+  # hardhat:
+  #   image: node:20-alpine
+  #   working_dir: /app
+  #   volumes:
+  #     - ./contracts:/app
+  #   ports:
+  #     - "8545:8545"
+  #   command: npx hardhat node --hostname 0.0.0.0
+
+volumes:
+  pgdata:
