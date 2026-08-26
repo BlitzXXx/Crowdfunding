@@ -51,6 +51,7 @@ export function OptimisticCampaignProvider({ children }: { children: ReactNode }
   return <OptimisticCtx.Provider value={api}>{children}</OptimisticCtx.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useOptimisticCampaign(): OptimisticApi {
   return useContext(OptimisticCtx);
 }
@@ -66,6 +67,7 @@ function isEmpty(delta: OptimisticDelta): boolean {
 }
 
 /** Merge pending expectations into on-chain details for display. */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useDisplayDetails(details: CampaignDetails | undefined): CampaignDetails | undefined {
   const { delta } = useOptimisticCampaign();
 
@@ -90,6 +92,7 @@ export function useDisplayDetails(details: CampaignDetails | undefined): Campaig
  * Wire an action's receipt to optimistic-state cleanup: once the tx succeeds,
  * clear the delta and invalidate caches so fresh chain data takes over.
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useReceiptCleanup(actions: Array<{ receipt: { isSuccess: boolean } }>, apply: (d: OptimisticDelta | null) => void) {
   const queryClient = useQueryClient();
   const successKey = actions.map((a) => a.receipt.isSuccess).join(",");
