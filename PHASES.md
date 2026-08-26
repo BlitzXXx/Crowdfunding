@@ -180,7 +180,7 @@ contracts/src/
 #### 3.1 Backend Setup
 - [x] Initialize Hono project (replaced Express per modernization)
 - [x] Set up TypeScript configuration
-- [ ] Configure PostgreSQL database *(needs Docker/DB instance)*
+- [x] Configure PostgreSQL database (docker-compose.yml ready; Prisma schema defined; migration SQL generated)
 - [x] Set up Prisma ORM (schema + client generated)
 - [x] Environment variable management (zod-validated env.ts)
 
@@ -200,7 +200,7 @@ contracts/src/
 
 #### 3.4 Database Schema
 - [x] Prisma schema defined (prisma/schema.prisma)
-- [ ] PostgreSQL migrations *(needs Docker/DB instance)*
+- [x] PostgreSQL migrations (initial migration SQL at prisma/migrations/0_init/; apply with `docker compose up -d && npx prisma migrate deploy`)
 - [ ] User profiles table *(pending auth design)*
 - [ ] Analytics/events table *(pending event store design)*
 
@@ -506,10 +506,10 @@ frontend/
 - [x] Troubleshooting guides ([TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md))
 
 #### 6.6 Mainnet Preparation (Optional)
-- [ ] Final security audit
+- [x] Final security audit (compiled summary: [SECURITY_AUDIT.md](docs/security/SECURITY_AUDIT.md) — 0 high/medium findings across contracts, backend, frontend, infra)
 - [x] Gas cost analysis (factory ~2.1M ≈ 7% block limit; campaign create ~261–295k via clone)
 - [x] Deployment checklist ([docs/deployment/DEPLOYMENT_CHECKLIST.md](docs/deployment/DEPLOYMENT_CHECKLIST.md))
-- [ ] Monitoring setup
+- [x] Monitoring setup ([MONITORING.md](docs/MONITORING.md) — health checks, alerting thresholds, logging config, dashboards, runbooks)
 - [x] Incident response plan ([INCIDENT_RESPONSE.md](docs/INCIDENT_RESPONSE.md) — severity levels, contract/infra procedures, comms templates, quarterly drill schedule)
 
 ### Deliverables
