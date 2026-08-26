@@ -10,7 +10,7 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_USER: crowdchain
       POSTGRES_PASSWORD: crowdchain_dev
@@ -44,20 +44,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    # host.docker.internal reaches the host machine's ports (Docker Desktop / Linux with extra_hosts)
     extra_hosts:
       - "host.docker.internal:host-gateway"
-
-  # ── Hardhat Node (on-chain devnet) ──────────────────────────
-  # Uncomment to run Hardhat inside Docker instead of on the host:
-  # hardhat:
-  #   image: node:20-alpine
-  #   working_dir: /app
-  #   volumes:
-  #     - ./contracts:/app
-  #   ports:
-  #     - "8545:8545"
-  #   command: npx hardhat node --hostname 0.0.0.0
 
 volumes:
   pgdata:
