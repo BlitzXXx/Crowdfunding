@@ -8,9 +8,9 @@ dataSources:
     name: CrowdfundingFactory
     network: sepolia
     source:
-      address: "0x0000000000000000000000000000000000000000"
+      address: "0xE9C82D2a18d9059f2BB980462831111397Bc406B"
       abi: CrowdfundingFactory
-      startBlock: 0
+      startBlock: 11572100
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9

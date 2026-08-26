@@ -1,8 +1,8 @@
 {
   "sepolia": {
     "network": "sepolia",
-    "factoryAddress": "0x0000000000000000000000000000000000000000",
-    "startBlock": 0
+    "factoryAddress": "0xE9C82D2a18d9059f2BB980462831111397Bc406B",
+    "startBlock": 11572100
   },
   "localhost": {
     "network": "localhost",
