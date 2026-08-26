@@ -38,7 +38,7 @@ services:
       postgres_user: crowdchain
       postgres_pass: crowdchain_dev
       postgres_db: graph-node
-      ipfs: "https://ipfs.io"          # Public IPFS gateway (swap for local if available)
+      ipfs: "none"  # IPFS disabled for local dev
       ethereum: "localhost:http://host.docker.internal:8545"  # Hardhat node on host
       GRAPH_LOG: info
     depends_on:
