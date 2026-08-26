@@ -6,6 +6,9 @@ import { health } from "./routes/health.js";
 import { campaigns } from "./routes/campaigns.js";
 import { ipfs } from "./routes/ipfs.js";
 import { blockchain } from "./routes/blockchain.js";
+import { users } from "./routes/users.js";
+import { search } from "./routes/search.js";
+import { monitoring } from "./routes/monitoring.js";
 import { openApiSpec } from "./openapi.js";
 import { env } from "./env.js";
 
@@ -52,6 +55,9 @@ export function createApp() {
   app.route("/api/v1/campaigns", campaigns);
   app.route("/api/v1/ipfs", ipfs);
   app.route("/api/v1/blockchain", blockchain);
+  app.route("/api/v1/users", users);
+  app.route("/api/v1/search", search);
+  app.route("/api/v1/monitoring", monitoring);
 
   app.notFound((c) => c.json({ error: "Not found" }, 404));
 

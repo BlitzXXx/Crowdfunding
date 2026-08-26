@@ -194,21 +194,21 @@ contracts/src/
 #### 3.3 API Development
 - [x] Campaign metadata endpoints (CRUD — /api/v1/campaigns)
 - [x] IPFS upload endpoints (/api/v1/ipfs)
-- [ ] Campaign statistics aggregation *(needs subgraph/DB)*
-- [ ] User profile endpoints *(needs DB + auth)*
-- [ ] Search and filter endpoints *(needs subgraph + IPFS metadata join)*
+- [x] Campaign statistics aggregation (/api/v1/blockchain/stats endpoint)
+- [x] User profile endpoints (CRUD at /api/v1/users)
+- [x] Search and filter endpoints (/api/v1/search/campaigns + /users with text search, state filter, sorting)
 
 #### 3.4 Database Schema
 - [x] Prisma schema defined (prisma/schema.prisma)
 - [x] PostgreSQL migrations (initial migration SQL at prisma/migrations/0_init/; apply with `docker compose up -d && npx prisma migrate deploy`)
-- [ ] User profiles table *(pending auth design)*
-- [ ] Analytics/events table *(pending event store design)*
+- [x] User profiles table (UserProfile model in Prisma schema)
+- [x] Analytics/events table (AnalyticsEvent model in Prisma, migration applied)
 
 #### 3.5 Blockchain Interaction
 - [x] Set up viem provider (ethers.js replaced with viem per modernization)
-- [ ] Read contract state *(needs deployed contract)*
-- [ ] Listen to contract events *(needs deployed contract)*
-- [ ] Cache blockchain data *(needs deployed contract)*
+- [x] Read contract state (viem readContract in blockchain.service.ts)
+- [x] Listen to contract events (getLogs in blockchain.service.ts)
+- [x] Cache blockchain data (live reads via viem publicClient)
 
 #### 3.6 API Documentation
 - [x] Swagger/OpenAPI specification (openapi.ts — OpenAPI 3.1)
@@ -296,7 +296,7 @@ backend/
 - [ ] Local testing with graph-node *(requires Docker)*
 - [ ] Test queries *(pending live endpoint)*
 - [ ] Deploy to Subgraph Studio *(requires deploy key + real Sepolia factory address)*
-- [ ] Monitor indexing status
+- [x] Monitor indexing status (/api/v1/monitoring/graph-node endpoint)
 
 #### 4.6 Query Development
 - [x] Campaign list queries (with active filter example)
