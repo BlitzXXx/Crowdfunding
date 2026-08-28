@@ -485,10 +485,10 @@ frontend/
 - [ ] Configure all connections
 
 #### 6.3 Testing on Testnet
-- [ ] Create test campaigns
-- [ ] Test contribution flow
-- [ ] Test withdrawal flow
-- [ ] Test refund flow
+- [x] Create test campaigns *(local Hardhat + Sepolia)* 
+- [x] Test contribution flow *(0.5 + 1.6 ETH; goal reached)* 
+- [x] Test withdrawal flow *(creator withdrawal verified)* 
+- [x] Test refund flow *(contract method verified)* 
 - [ ] Test edge cases
 - [ ] Gather user feedback
 
