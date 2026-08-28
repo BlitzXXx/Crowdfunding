@@ -1,6 +1,4 @@
-specVersion: 1.3.0
-indexerHints:
-  prune: never
+specVersion: 1.0.0
 schema:
   file: ./schema.graphql
 dataSources:
@@ -35,7 +33,7 @@ templates:
     source:
       abi: Campaign
     mapping:
-      kind: ethereum/logs
+      kind: ethereum/events
       apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:

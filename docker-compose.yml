@@ -23,6 +23,16 @@ services:
       timeout: 3s
       retries: 10
 
+  # ── IPFS (required by graph-node) ──────────────────────────
+  ipfs:
+    image: ipfs/kubo:latest
+    restart: unless-stopped
+    ports:
+      - "5001:5001"   # API
+      - "8080:8080"   # Gateway
+    volumes:
+      - ipfsdata:/data/ipfs
+
   # ── Graph Node (for local subgraph testing) ─────────────────
   graph-node:
     image: graphprotocol/graph-node:v0.35.0
@@ -38,14 +48,17 @@ services:
       postgres_user: crowdchain
       postgres_pass: crowdchain_dev
       postgres_db: graph-node
-      ipfs: "none"  # IPFS disabled for local dev
-      ethereum: "localhost:http://host.docker.internal:8545"  # Hardhat node on host
+      ipfs: "ipfs:5001"
+      ethereum: "localhost:http://host.docker.internal:8545"
       GRAPH_LOG: info
     depends_on:
       postgres:
         condition: service_healthy
+      ipfs:
+        condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
 volumes:
   pgdata:
+  ipfsdata:

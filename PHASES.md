@@ -293,8 +293,8 @@ backend/
 - [x] Implement data validation (null-guards on entity loads)
 
 #### 4.5 Testing & Deployment
-- [ ] Local testing with graph-node *(requires Docker)*
-- [ ] Test queries *(pending live endpoint)*
+- [x] Local testing with graph-node *(Docker + Hardhat local node)* 
+- [x] Test queries *(verified via local graph-node GraphQL endpoint)* 
 - [ ] Deploy to Subgraph Studio *(requires deploy key + real Sepolia factory address)*
 - [x] Monitor indexing status (/api/v1/monitoring/graph-node endpoint)
 
