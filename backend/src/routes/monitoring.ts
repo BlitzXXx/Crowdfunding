@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { getPrisma } from "../services/prisma.js";
+import { getClient, getCampaignCount } from "../services/blockchain.service.js";
 
 export const monitoring = new Hono();
 
