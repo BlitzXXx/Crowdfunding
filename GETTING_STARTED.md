@@ -1,291 +1,179 @@
-# 🚀 Getting Started Guide
+# 🚀 Getting Started
 
-This guide will walk you through setting up your development environment and starting Phase 1 of the Web3 Crowdfunding Platform project.
+Get CrowdChain running locally in 10 minutes.
 
-## 📋 Prerequisites
+## Prerequisites
 
-Before you begin, ensure you have the following:
+- **Node.js** v18+ (`node --version`)
+- **Docker Desktop** (running)
+- **MetaMask** browser extension (optional, for wallet features)
 
-### Required Software
-- **Node.js**: v18.0.0 or higher ([Download](https://nodejs.org/))
-- **npm** or **yarn**: Package manager (comes with Node.js)
-- **Git**: Version control ([Download](https://git-scm.com/))
-- **Code Editor**: VS Code recommended ([Download](https://code.visualstudio.com/))
-
-### Recommended VS Code Extensions
-```
-- Solidity (Juan Blanco)
-- ESLint
-- Prettier
-- GitLens
-- Tailwind CSS IntelliSense
-```
-
-### Blockchain Tools
-- **MetaMask**: Browser wallet extension ([Install](https://metamask.io/))
-- **Sepolia ETH**: Testnet funds from faucets (we'll get these later)
-
-## 🔧 Phase 1: Initial Setup
-
-### Step 1: Verify Prerequisites
-
-Check your installations:
+## 1. Install Dependencies
 
 ```bash
-# Check Node.js version (should be 18+)
-node --version
+# Root level (not needed)
+# Install each package independently:
 
-# Check npm version
-npm --version
-
-# Check Git
-git --version
+cd contracts && npm install && cd ..
+cd subgraph && npm install && cd ..
+cd backend && npm install && cd ..
+cd frontend && npm install && cd ..
 ```
 
-### Step 2: Project Repository
-
-You're already in the project directory. Let's verify:
+## 2. Start Docker Infrastructure
 
 ```bash
-# Check current directory
-pwd
-
-# Should show: /home/user/Crowdfunding
+docker compose up -d
 ```
 
-### Step 3: Review Project Structure
+This starts:
+- **PostgreSQL** on `localhost:5433` (user: `crowdchain`, pass: `crowdchain_dev`)
+- **Graph Node** on `localhost:8000` (GraphQL), `:8020` (admin), `:8030` (index status)
+- **IPFS** on `localhost:5001` (API), `:8080` (gateway)
 
-Review the blueprint and phases:
+Verify containers are running:
+```bash
+docker ps
+```
+
+## 3. Configure Environment Variables
 
 ```bash
-# Read the blueprint
-cat BLUEPRINT.md
-
-# Read phase details
-cat PHASES.md
-
-# Check current structure
-ls -la
+cp contracts/.env.example contracts/.env
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
 ```
 
-## 📁 Directory Structure Overview
-
-We'll create the following structure throughout the project:
-
+**Minimum required** — edit `backend/.env`:
 ```
-Crowdfunding/
-├── contracts/              # Phase 2: Smart Contracts
-│   ├── src/
-│   │   ├── CrowdfundingFactory.sol
-│   │   └── Campaign.sol
-│   ├── test/
-│   ├── scripts/
-│   ├── hardhat.config.js
-│   └── package.json
-│
-├── subgraph/              # Phase 4: The Graph
-│   ├── src/
-│   ├── schema.graphql
-│   ├── subgraph.yaml
-│   └── package.json
-│
-├── backend/               # Phase 3: Backend Services
-│   ├── src/
-│   │   ├── routes/
-│   │   ├── controllers/
-│   │   ├── services/
-│   │   └── app.ts
-│   ├── prisma/
-│   └── package.json
-│
-├── frontend/              # Phase 5: React Frontend
-│   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── hooks/
-│   │   └── App.tsx
-│   ├── public/
-│   └── package.json
-│
-├── docs/                  # Documentation
-│   ├── architecture/
-│   ├── api/
-│   └── guides/
-│
-└── scripts/               # Deployment scripts
-    └── deploy/
+SEPOLIA_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_ALCHEMY_KEY
+CONTRACT_ADDRESS=0xE9C82D2a18d9059f2BB980462831111397Bc406B
+PINATA_JWT=your_pinata_jwt
 ```
 
-## 🎯 Phase 1 Checklist
+**Optional for local testing** (Hardhat node instead of Sepolia):
+```
+# backend/.env
+SEPOLIA_RPC_URL=http://127.0.0.1:8545
 
-Follow this checklist to complete Phase 1:
+# frontend/.env
+VITE_CHAIN=localhost
+```
 
-### ✅ 1.1 Environment Verification
-- [ ] Node.js v18+ installed
-- [ ] npm/yarn installed
-- [ ] Git configured
-- [ ] VS Code with extensions
-- [ ] MetaMask installed
+See [docs/deployment/KEY_GUIDE.md](docs/deployment/KEY_GUIDE.md) for where to get each key (all free).
 
-### ✅ 1.2 Understanding the Architecture
-- [ ] Read BLUEPRINT.md completely
-- [ ] Understand the system architecture diagram
-- [ ] Review the technology stack
-- [ ] Understand the data flow
+## 4. Set Up Database
 
-### ✅ 1.3 Smart Contract Concepts Review
-Read about these concepts before Phase 2:
-- [ ] Solidity basics
-- [ ] Factory pattern
-- [ ] Payable functions
-- [ ] Events and logging
-- [ ] Modifiers and access control
+```bash
+cd backend
+npx prisma migrate deploy
+npx prisma generate
+```
 
-Resources:
-- [Solidity Documentation](https://docs.soliditylang.org/)
-- [OpenZeppelin Contracts](https://docs.openzeppelin.com/contracts/)
-- [Hardhat Documentation](https://hardhat.org/docs)
+## 5. Start the Backend
 
-### ✅ 1.4 MetaMask Setup
-- [ ] Install MetaMask extension
-- [ ] Create new wallet (or import existing)
-- [ ] **IMPORTANT**: Save your seed phrase securely (this is a testnet wallet)
-- [ ] Add Sepolia testnet to MetaMask
-- [ ] Get Sepolia ETH from faucets
+```bash
+cd backend
+npm run dev
+# Runs on http://localhost:3001
+# API docs at http://localhost:3001/docs
+# Health check at http://localhost:3001/health
+```
 
-#### Adding Sepolia Network to MetaMask:
-1. Open MetaMask
-2. Click network dropdown
-3. Click "Add Network"
-4. Enter Sepolia details:
-   - **Network Name**: Sepolia
-   - **RPC URL**: `https://sepolia.infura.io/v3/YOUR_INFURA_KEY` (or use Alchemy)
-   - **Chain ID**: `11155111`
-   - **Currency Symbol**: `ETH`
-   - **Block Explorer**: `https://sepolia.etherscan.io`
+## 6. Start the Frontend
 
-#### Getting Sepolia ETH:
-- [Sepolia Faucet 1](https://sepoliafaucet.com/)
-- [Alchemy Sepolia Faucet](https://sepoliafaucet.com/)
-- [Infura Sepolia Faucet](https://www.infura.io/faucet/sepolia)
+```bash
+cd frontend
+npm run dev
+# Runs on http://localhost:5173
+```
 
-## 🔜 Next Steps
+## 7. Verify Everything Works
 
-Once you've completed Phase 1 checklist:
+```bash
+bash scripts/check-connections.sh
+```
 
-### Ready to Code?
+Expected output:
+```
+✓ PostgreSQL connected
+✓ Backend healthy, database connected
+✓ OpenAPI docs available
+✓ Connected to Sepolia
+✓ Frontend serving on :5173
+✓ PostgreSQL container running
+✓ Graph-node container running
+✓ IPFS container running
+```
 
-1. **Phase 2 Start**: Smart Contract Development
-   ```bash
-   # You'll initialize the Hardhat project:
-   # cd contracts
-   # npm init -y
-   # npm install --save-dev hardhat
-   ```
+## Optional: Local Hardhat Node
 
-2. **Review Phase 2 Tasks**:
-   - Open `PHASES.md`
-   - Review Phase 2 section
-   - Understand what you'll build
+For fully local testing without Sepolia:
 
-3. **Get Coding**:
-   - We'll create the contracts step-by-step
-   - Write tests for each function
-   - Deploy to local network first
-   - Then deploy to Sepolia
+```bash
+# Terminal: Start Hardhat node
+cd contracts && npx hardhat node
 
-## 📚 Recommended Learning Path
+# Terminal: Deploy contracts locally
+cd contracts && npx hardhat run scripts/deploy.js --network localhost
 
-Before diving into code, review these topics:
+# Update backend/.env
+SEPOLIA_RPC_URL=http://127.0.0.1:8545
+CONTRACT_ADDRESS=<from deployment output>
 
-### Week 1: Phase 1 + Preparation
-- [ ] Review Solidity syntax
-- [ ] Understand Ethereum basics (accounts, transactions, gas)
-- [ ] Read about smart contract security
-- [ ] Familiarize yourself with Hardhat
+# Update frontend/.env
+VITE_CHAIN=localhost
+VITE_FACTORY_ADDRESS=<from deployment output>
+```
 
-### Week 2-3: Phase 2
-- [ ] Factory pattern
-- [ ] State machines
-- [ ] Event-driven architecture
-- [ ] Testing best practices
+## Running Tests
 
-### Week 4: Phase 3
-- [ ] IPFS concepts
-- [ ] REST API design
-- [ ] Off-chain data strategies
+```bash
+# Smart contracts (73 tests)
+cd contracts && npm test
 
-### Week 5: Phase 4
-- [ ] The Graph architecture
-- [ ] GraphQL basics
-- [ ] Event indexing
+# Backend API (8 tests)
+cd backend && npm test
 
-### Week 6-7: Phase 5
-- [ ] React + Web3 integration
-- [ ] ethers.js v6
-- [ ] Transaction handling
-- [ ] UX patterns for DApps
+# Frontend build + typecheck
+cd frontend && npm run typecheck && npm run build
 
-### Week 8: Phase 6
-- [ ] Deployment strategies
-- [ ] Testing in production
-- [ ] Monitoring and maintenance
+# Playwright E2E (requires frontend running)
+cd frontend && npx playwright test
+```
 
-## 💡 Development Tips
+## Troubleshooting
 
-### Best Practices
-1. **Commit Often**: Commit after completing each task
-2. **Test First**: Write tests before or alongside code
-3. **Document**: Comment complex logic
-4. **Gas Awareness**: Always consider gas costs
-5. **Security First**: Think about edge cases and attacks
+**Port 5432 already in use:**
+```bash
+# PostgreSQL is on 5433, not 5432 — check backend/.env
+grep DATABASE_URL backend/.env
+```
 
-### Common Pitfalls to Avoid
-- ❌ Not testing edge cases
-- ❌ Ignoring gas optimization
-- ❌ Poor error handling
-- ❌ Inadequate access control
-- ❌ Not handling failed transactions in frontend
+**Docker containers won't start:**
+```bash
+docker compose down -v   # Remove volumes and recreate
+docker compose up -d
+```
 
-### Debugging Tools
-- **Hardhat Console**: `npx hardhat console`
-- **Hardhat Network**: Built-in blockchain for testing
-- **Etherscan**: Verify and explore contracts
-- **Tenderly**: Advanced debugging and monitoring
+**Prisma migration fails:**
+```bash
+cd backend
+npx prisma migrate reset    # ⚠️ Deletes all data
+npx prisma migrate deploy
+npx prisma generate
+```
 
-## 🆘 Getting Help
+**Backend won't connect to database:**
+```bash
+# Check if PostgreSQL is running
+docker exec crowdfunding-postgres-1 pg_isready -U crowdchain
 
-### Resources
-- **Hardhat Docs**: https://hardhat.org/docs
-- **Solidity Docs**: https://docs.soliditylang.org/
-- **OpenZeppelin**: https://docs.openzeppelin.com/
-- **The Graph**: https://thegraph.com/docs/
-- **ethers.js**: https://docs.ethers.org/v6/
+# Check connection
+PGPASSWORD=crowdchain_dev psql -h 127.0.0.1 -p 5433 -U crowdchain -d crowdchain
+```
 
-### Community
-- Ethereum Stack Exchange
-- Hardhat Discord
-- The Graph Discord
-- r/ethdev on Reddit
+**Frontend shows "Cannot connect to MetaMask":**
+This is expected without the MetaMask extension. The app works without wallet connection for browsing.
 
-## ✅ Phase 1 Complete?
-
-Once you've:
-- ✅ Installed all prerequisites
-- ✅ Read and understood the blueprint
-- ✅ Set up MetaMask with Sepolia
-- ✅ Reviewed Solidity basics
-- ✅ Understand the project architecture
-
-**You're ready to begin Phase 2!** 🎉
-
-Let's start building the smart contracts. When you're ready, let me know and we'll:
-1. Initialize the Hardhat project
-2. Set up the project structure
-3. Write our first smart contract
-4. Create comprehensive tests
-5. Deploy to local network
-
----
-
-**Questions?** Review the documentation or ask for clarification before proceeding!
+See [docs/user/TROUBLESHOOTING.md](docs/user/TROUBLESHOOTING.md) for more issues.

@@ -1,120 +1,187 @@
-# 🚀 Decentralized Crowdfunding Platform
+# 🚀 CrowdChain — Decentralized Crowdfunding Platform
 
-> A complete end-to-end Web3 learning project covering all major blockchain concepts
+> A full-stack Web3 crowdfunding dApp: Solidity contracts on Ethereum, subgraph indexing, Node.js backend, React frontend.
 
-## Overview
-
-This is a comprehensive crowdfunding platform built entirely on blockchain technology. It serves as a complete educational journey through Web3 development, from smart contracts to frontend integration.
-
-## 🎯 What You'll Learn
-
-- ✅ Smart Contract Development (Solidity)
-- ✅ Blockchain Transactions & Gas Optimization
-- ✅ Event-Driven Architecture
-- ✅ Wallet Integration (MetaMask)
-- ✅ The Graph Indexing & GraphQL
-- ✅ IPFS Decentralized Storage
-- ✅ Off-Chain Services & APIs
-- ✅ Full-Stack Web3 Frontend
-
-## 📚 Documentation
-
-- **[BLUEPRINT.md](./BLUEPRINT.md)** - Complete project overview and architecture
-- **[PHASES.md](./PHASES.md)** - Detailed breakdown of all 6 phases
-- **[GETTING_STARTED.md](./GETTING_STARTED.md)** - Setup instructions
-
-## 🏗️ Project Structure
+## Architecture
 
 ```
-crowdfunding-dapp/
-├── contracts/          # Smart contracts (Hardhat)
-├── subgraph/          # The Graph indexing layer
-├── backend/           # Off-chain services (Node.js)
-├── frontend/          # React + Web3 frontend
-├── docs/              # Additional documentation
-└── scripts/           # Deployment & automation
+┌─────────────┐     ┌──────────────┐     ┌────────────────┐
+│   Frontend   │────▶│   Backend    │────▶│   PostgreSQL   │
+│  React/Vite  │     │  Hono/Prisma │     │  (Docker :5433)│
+│  :5173       │     │  :3001       │     └────────────────┘
+└──────┬───────┘     └──────┬───────┘
+       │                    │
+       │ wagmi/viem         │ viem
+       ▼                    ▼
+┌─────────────┐     ┌──────────────┐
+│  MetaMask    │     │  Sepolia     │
+│  (wallet)    │     │  RPC (Alchemy)│
+└──────┬───────┘     └──────┬───────┘
+       │                    │
+       │                    │ events
+       ▼                    ▼
+┌─────────────┐     ┌──────────────┐
+│  Smart       │◀───│  Subgraph    │
+│  Contracts   │    │  (Graph Node)│
+│  (Factory +  │    │  :8000       │
+│   Campaign)  │    └──────────────┘
+└──────────────┘
 ```
 
-## 🚦 Current Status
+## Quick Start
 
-**Phase**: 2 complete · Phase 3 in progress
-**Branch**: `claude/web3-full-stack-project-01C3Mmzt11rQUZVqybLf2Fes`
+### Prerequisites
 
-## 📋 Phase Checklist
+- **Node.js** v18+
+- **Docker Desktop** (for PostgreSQL + Graph Node + IPFS)
+- **MetaMask** browser extension
 
-- [x] **Phase 1**: Architecture & Setup
-- [x] **Phase 2**: Smart Contracts Development *(73 tests, 98.9% coverage, Slither-clean)*
-- [ ] **Phase 3**: Backend & Off-Chain Services *(core done: Hono + Prisma + Zod, rate limiting, OpenAPI docs at /docs — live DB/IPFS keys pending)*
-- [ ] **Phase 4**: Indexing & Subgraph *(built: schema, handlers, codegen+build verified; deploy needs Studio key)*
-- [ ] **Phase 5**: Frontend Development *(built: React 19 + wagmi v2 + Tailwind v4; all core pages; build passes)*
-- [ ] **Phase 6**: Testing & Deployment *(keyless prep done: CI pipeline, Playwright E2E green, OpenAPI docs, user + troubleshooting guides, deployment checklist)*
-
-## 🛠️ Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| **Blockchain** | Ethereum, Solidity, Hardhat |
-| **Indexing** | The Graph, GraphQL |
-| **Storage** | IPFS (Pinata) |
-| **Backend** | Node.js, Hono, PostgreSQL, Prisma |
-| **Frontend** | React, wagmi/viem, TailwindCSS |
-| **Testing** | Hardhat, Chai, React Testing Library |
-
-## 🎓 Learning Path
-
-This project is designed to be completed in **6-8 weeks**, with each phase building on the previous:
-
-1. **Week 1**: Environment setup and architecture
-2. **Weeks 2-3**: Smart contract development and testing
-3. **Week 4**: Backend services and IPFS integration
-4. **Week 5**: Subgraph development and deployment
-5. **Weeks 6-7**: Frontend development
-6. **Week 8**: Integration testing and deployment
-
-## 🚀 Quick Start
+### 1. Install Dependencies
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd Crowdfunding
-
-# Install dependencies (we'll do this in Phase 1)
-# Each module will be set up separately
-
-# Read the blueprint
-cat BLUEPRINT.md
-
-# Start with Phase 1
-cat PHASES.md
+cd contracts && npm install
+cd ../subgraph && npm install
+cd ../backend && npm install
+cd ../frontend && npm install
 ```
 
-## 📖 How to Use This Project
+### 2. Start Infrastructure (Docker)
 
-1. Read through `BLUEPRINT.md` for the big picture
-2. Follow `PHASES.md` step-by-step
-3. Complete each phase before moving to the next
-4. Test thoroughly at each stage
-5. Build your portfolio piece!
+```bash
+docker compose up -d
+# Starts: PostgreSQL (:5433), Graph Node (:8000), IPFS (:5001)
+```
 
-## 🤝 Contributing
+### 3. Set Up Environment Variables
 
-This is a learning project, but contributions are welcome! Please:
-- Follow the existing code style
-- Write tests for new features
-- Update documentation
+```bash
+# Copy example env files and fill in your keys
+cp contracts/.env.example contracts/.env
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+```
 
-## 📄 License
+See [docs/deployment/KEY_GUIDE.md](docs/deployment/KEY_GUIDE.md) for where to get each key (all free for testnet).
 
-MIT License - See LICENSE file for details
+### 4. Run Database Migrations
 
-## 🎯 Goals
+```bash
+cd backend
+npx prisma migrate deploy
+npx prisma generate
+```
 
-By completing this project, you'll have:
-- A production-ready DApp
-- Deep understanding of Web3 development
-- Portfolio project showcasing your skills
-- Foundation for building your own Web3 projects
+### 5. Start Development Servers
 
----
+```bash
+# Terminal 1 — Backend (port 3001)
+cd backend && npm run dev
 
-**Ready to start?** Head over to [GETTING_STARTED.md](./GETTING_STARTED.md) to begin Phase 1!
+# Terminal 2 — Frontend (port 5173)
+cd frontend && npm run dev
+
+# Terminal 3 — Hardhat node (optional, for local testing)
+cd contracts && npx hardhat node
+```
+
+### 6. Verify Everything Works
+
+```bash
+bash scripts/check-connections.sh
+```
+
+## Project Structure
+
+```
+Crowdfunding/
+├── contracts/              # Solidity smart contracts (Hardhat)
+│   ├── src/
+│   │   ├── CrowdfundingFactory.sol   # Factory: creates campaigns
+│   │   └── Campaign.sol             # Individual campaign logic
+│   ├── test/               # 73 Hardhat tests (98.9% coverage)
+│   ├── scripts/            # Deploy + interact + E2E scripts
+│   └── deployments/        # Deployed contract addresses
+├── subgraph/               # The Graph subgraph
+│   ├── schema.graphql      # Entity definitions
+│   ├── src/                # Event handlers
+│   └── queries/            # GraphQL query examples
+├── backend/                # Hono API server
+│   ├── src/routes/         # API routes (campaigns, users, search, blockchain, monitoring)
+│   ├── src/services/       # Business logic (blockchain, IPFS, Prisma)
+│   ├── prisma/             # Database schema + migrations
+│   └── test/               # API tests (8 tests)
+├── frontend/               # React + Vite + wagmi
+│   ├── src/pages/          # Home, Create, Detail, Dashboard, 404
+│   ├── src/components/     # UI components, toast, ContributeCard
+│   ├── src/hooks/          # useOptimisticCampaign
+│   └── e2e/                # Playwright smoke tests (7 tests)
+├── scripts/                # Automation (check-connections.sh)
+└── docs/                   # Deployment, security, guides
+```
+
+## Tech Stack
+
+| Layer | Tech | Details |
+|-------|------|---------|
+| **Smart Contracts** | Solidity, Hardhat | Factory pattern, campaign lifecycle, 73 tests |
+| **Indexing** | The Graph, GraphQL | Event indexing, platform stats, search |
+| **Storage** | IPFS (Pinata) | Campaign metadata + images |
+| **Backend** | Node.js, Hono, Prisma | REST API, Zod validation, rate limiting |
+| **Database** | PostgreSQL 16 | Docker, migrations via Prisma |
+| **Frontend** | React 19, wagmi v2, Tailwind v4 | MetaMask, optimistic UI, responsive |
+| **Testing** | Hardhat, Vitest, Playwright | Unit + integration + E2E |
+
+## Deployed Contracts
+
+| Network | Address | Etherscan |
+|---------|---------|-----------|
+| **Sepolia** | [`0xE9C82D2a18d9059f2BB980462831111397Bc406B`](https://sepolia.etherscan.io/address/0xE9C82D2a18d9059f2BB980462831111397Bc406B) | ✅ Verified |
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/health` | Health check (DB + IPFS status) |
+| `GET` | `/docs` | OpenAPI documentation |
+| `GET` | `/api/v1/blockchain/status` | Chain connection, block number |
+| `GET` | `/api/v1/blockchain/campaigns` | All on-chain campaigns |
+| `GET` | `/api/v1/blockchain/stats` | Platform statistics |
+| `GET` | `/api/v1/users/:address` | User profile |
+| `GET` | `/api/v1/search` | Search campaigns |
+| `GET` | `/api/v1/monitoring/indexing` | Subgraph indexing status |
+
+## Testing
+
+```bash
+# Smart contracts (73 tests)
+cd contracts && npm test
+
+# Backend API (8 tests)
+cd backend && npm test
+
+# Frontend typecheck + build
+cd frontend && npm run typecheck && npm run build
+
+# Playwright E2E (7 tests, requires dev server running)
+cd frontend && npx playwright test
+```
+
+## Deployment
+
+- **Frontend** → Vercel (config: `frontend/vercel.json`)
+- **Backend** → Railway (config: `backend/railway.json`)
+- **Subgraph** → The Graph Studio (`npx graph auth --studio KEY && npm run deploy:studio`)
+
+See [docs/deployment/DEPLOYMENT_CHECKLIST.md](docs/deployment/DEPLOYMENT_CHECKLIST.md) for full checklist.
+
+## Documentation
+
+- **[PHASES.md](./PHASES.md)** — Detailed phase breakdown (168/178 tasks complete)
+- **[docs/deployment/KEY_GUIDE.md](docs/deployment/KEY_GUIDE.md)** — All API keys (free)
+- **[docs/deployment/DEPLOYMENT_CHECKLIST.md](docs/deployment/DEPLOYMENT_CHECKLIST.md)** — Step-by-step deploy
+- **[docs/user/USER_GUIDE.md](docs/user/USER_GUIDE.md)** — End-user guide
+- **[docs/user/TROUBLESHOOTING.md](docs/user/TROUBLESHOOTING.md)** — Common issues
+
+## License
+
+MIT
