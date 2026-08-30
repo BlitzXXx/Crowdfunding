@@ -489,7 +489,7 @@ frontend/
 - [x] Test contribution flow *(0.5 + 1.6 ETH; goal reached)* 
 - [x] Test withdrawal flow *(creator withdrawal verified)* 
 - [x] Test refund flow *(contract method verified)* 
-- [ ] Test edge cases
+- [x] Test edge cases (Playwright: 404, responsive viewports, dark mode, dashboard, navigation)
 - [ ] Gather user feedback
 
 #### 6.4 Security Review
