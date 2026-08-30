@@ -482,7 +482,7 @@ frontend/
 - [ ] Deploy subgraph to hosted service *(build verified; needs Studio key + real address)*
 - [ ] Deploy backend to cloud provider *(checklist ready)*
 - [ ] Deploy frontend to Vercel/Netlify *(checklist ready)*
-- [ ] Configure all connections
+- [x] Configure all connections (env vars wired, check-connections.sh script, verified post-restart)
 
 #### 6.3 Testing on Testnet
 - [x] Create test campaigns *(local Hardhat + Sepolia)* 
