@@ -199,7 +199,7 @@ describe("IPFS", () => {
     });
 
     it("accepts valid JSON content", async () => {
-      const { res, body } = await req("/api/v1/ipfs/json", {
+      const { res } = await req("/api/v1/ipfs/json", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: { test: true } }),
