@@ -2,6 +2,9 @@
 
 > A full-stack Web3 crowdfunding dApp: Solidity contracts on Ethereum, subgraph indexing, Node.js backend, React frontend.
 
+[![CI](https://github.com/your-username/Crowdfunding/actions/workflows/ci.yml/badge.svg)](https://github.com/your-username/Crowdfunding/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 ## Architecture
 
 ```
@@ -39,10 +42,10 @@
 ### 1. Install Dependencies
 
 ```bash
-cd contracts && npm install
-cd ../subgraph && npm install
-cd ../backend && npm install
-cd ../frontend && npm install
+cd contracts && npm install && cd ..
+cd subgraph && npm install && cd ..
+cd backend && npm install && cd ..
+cd frontend && npm install && cd ..
 ```
 
 ### 2. Start Infrastructure (Docker)
@@ -106,30 +109,42 @@ Crowdfunding/
 │   ├── src/                # Event handlers
 │   └── queries/            # GraphQL query examples
 ├── backend/                # Hono API server
-│   ├── src/routes/         # API routes (campaigns, users, search, blockchain, monitoring)
+│   ├── src/routes/         # API routes (7 route groups)
+│   │   ├── campaigns.ts    # Campaign metadata CRUD
+│   │   ├── blockchain.ts   # On-chain data (Sepolia)
+│   │   ├── users.ts        # User profiles
+│   │   ├── search.ts       # Search & filtering
+│   │   ├── monitoring.ts   # Health & metrics
+│   │   ├── ipfs.ts         # IPFS pinning
+│   │   └── health.ts       # Health check
 │   ├── src/services/       # Business logic (blockchain, IPFS, Prisma)
 │   ├── prisma/             # Database schema + migrations
-│   └── test/               # API tests (8 tests)
+│   └── test/               # 30 backend tests (Vitest)
 ├── frontend/               # React + Vite + wagmi
 │   ├── src/pages/          # Home, Create, Detail, Dashboard, 404
 │   ├── src/components/     # UI components, toast, ContributeCard
 │   ├── src/hooks/          # useOptimisticCampaign
-│   └── e2e/                # Playwright smoke tests (7 tests)
-├── scripts/                # Automation (check-connections.sh)
-└── docs/                   # Deployment, security, guides
+│   └── e2e/                # 7 Playwright smoke tests
+├── scripts/                # Automation scripts
+│   ├── check-connections.sh # Verify all services are healthy
+│   ├── deploy.sh           # One-command deployment
+│   └── pre-commit          # Git pre-commit hook
+└── docs/                   # Documentation
+    ├── deployment/         # KEY_GUIDE.md, DEPLOYMENT_CHECKLIST.md
+    └── user/               # USER_GUIDE.md, TROUBLESHOOTING.md
 ```
 
 ## Tech Stack
 
 | Layer | Tech | Details |
 |-------|------|---------|
-| **Smart Contracts** | Solidity, Hardhat | Factory pattern, campaign lifecycle, 73 tests |
+| **Smart Contracts** | Solidity, Hardhat | Factory pattern, campaign lifecycle, 73 tests, Slither-clean |
 | **Indexing** | The Graph, GraphQL | Event indexing, platform stats, search |
 | **Storage** | IPFS (Pinata) | Campaign metadata + images |
-| **Backend** | Node.js, Hono, Prisma | REST API, Zod validation, rate limiting |
+| **Backend** | Node.js, Hono, Prisma | REST API, Zod validation, rate limiting, 30 tests |
 | **Database** | PostgreSQL 16 | Docker, migrations via Prisma |
 | **Frontend** | React 19, wagmi v2, Tailwind v4 | MetaMask, optimistic UI, responsive |
-| **Testing** | Hardhat, Vitest, Playwright | Unit + integration + E2E |
+| **Testing** | Hardhat, Vitest, Playwright | 110 total tests across all packages |
 
 ## Deployed Contracts
 
@@ -142,45 +157,85 @@ Crowdfunding/
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/health` | Health check (DB + IPFS status) |
-| `GET` | `/docs` | OpenAPI documentation |
+| `GET` | `/docs` | OpenAPI documentation (Swagger UI) |
+| `GET` | `/openapi.json` | OpenAPI spec |
 | `GET` | `/api/v1/blockchain/status` | Chain connection, block number |
 | `GET` | `/api/v1/blockchain/campaigns` | All on-chain campaigns |
+| `GET` | `/api/v1/blockchain/campaigns/:address` | Single campaign details |
+| `GET` | `/api/v1/blockchain/events` | Recent on-chain events |
 | `GET` | `/api/v1/blockchain/stats` | Platform statistics |
-| `GET` | `/api/v1/users/:address` | User profile |
-| `GET` | `/api/v1/search` | Search campaigns |
-| `GET` | `/api/v1/monitoring/indexing` | Subgraph indexing status |
+| `GET` | `/api/v1/users` | List user profiles |
+| `GET` | `/api/v1/users/:address` | Get user profile |
+| `POST` | `/api/v1/users` | Create/update profile |
+| `GET` | `/api/v1/search/campaigns` | Search & filter campaigns |
+| `GET` | `/api/v1/search/users` | Search users |
+| `GET` | `/api/v1/monitoring` | Comprehensive service health |
+| `GET` | `/api/v1/monitoring/metrics` | Prometheus metrics |
+| `POST` | `/api/v1/ipfs/json` | Pin JSON to IPFS |
+| `POST` | `/api/v1/ipfs/file` | Pin file to IPFS |
 
 ## Testing
 
 ```bash
-# Smart contracts (73 tests)
+# Smart contracts — 73 tests (Slither-clean, 98.9% coverage)
 cd contracts && npm test
 
-# Backend API (8 tests)
+# Backend API — 30 tests (Vitest)
 cd backend && npm test
 
 # Frontend typecheck + build
 cd frontend && npm run typecheck && npm run build
 
-# Playwright E2E (7 tests, requires dev server running)
+# Playwright E2E — 7 tests (requires frontend running)
 cd frontend && npx playwright test
+
+# Run all checks at once
+cd backend && npm test && cd ../frontend && npm run typecheck && npm run lint
 ```
 
 ## Deployment
 
-- **Frontend** → Vercel (config: `frontend/vercel.json`)
-- **Backend** → Railway (config: `backend/railway.json`)
-- **Subgraph** → The Graph Studio (`npx graph auth --studio KEY && npm run deploy:studio`)
+| Service | Platform | Config |
+|---------|----------|--------|
+| **Frontend** | Vercel | `frontend/vercel.json` |
+| **Backend** | Railway | `backend/railway.json` |
+| **Subgraph** | The Graph Studio | `npx graph auth --studio KEY` |
+| **Database** | Supabase / Neon | — |
+| **IPFS** | Pinata | — |
+
+One-command deploy (after setting up keys):
+```bash
+bash scripts/deploy.sh           # Deploy everything
+bash scripts/deploy.sh contracts # Deploy contracts only
+bash scripts/deploy.sh backend   # Deploy backend only
+```
 
 See [docs/deployment/DEPLOYMENT_CHECKLIST.md](docs/deployment/DEPLOYMENT_CHECKLIST.md) for full checklist.
 
 ## Documentation
 
-- **[PHASES.md](./PHASES.md)** — Detailed phase breakdown (168/178 tasks complete)
-- **[docs/deployment/KEY_GUIDE.md](docs/deployment/KEY_GUIDE.md)** — All API keys (free)
-- **[docs/deployment/DEPLOYMENT_CHECKLIST.md](docs/deployment/DEPLOYMENT_CHECKLIST.md)** — Step-by-step deploy
-- **[docs/user/USER_GUIDE.md](docs/user/USER_GUIDE.md)** — End-user guide
-- **[docs/user/TROUBLESHOOTING.md](docs/user/TROUBLESHOOTING.md)** — Common issues
+| Document | Description |
+|----------|-------------|
+| **[PHASES.md](./PHASES.md)** | Detailed phase breakdown (176/186 tasks complete) |
+| **[GETTING_STARTED.md](./GETTING_STARTED.md)** | Local dev setup guide |
+| **[CONTRIBUTING.md](./CONTRIBUTING.md)** | Development workflow & code style |
+| **[docs/deployment/KEY_GUIDE.md](docs/deployment/KEY_GUIDE.md)** | All API keys (free for testnet) |
+| **[docs/deployment/DEPLOYMENT_CHECKLIST.md](docs/deployment/DEPLOYMENT_CHECKLIST.md)** | Step-by-step deploy |
+| **[docs/user/USER_GUIDE.md](docs/user/USER_GUIDE.md)** | End-user guide |
+| **[docs/user/TROUBLESHOOTING.md](docs/user/TROUBLESHOOTING.md)** | Common issues & fixes |
+
+## Security
+
+- **Smart contracts**: Slither static analysis — 0 high/medium findings
+- **Backend**: Rate limiting, CORS allowlist, Zod validation, Helmet-style headers
+- **Frontend**: No secrets in bundle, no dangerouslySetInnerHTML/eval, all external links use rel=noreferrer
+- **API keys**: Never committed to git (all in `.env` files, gitignored)
+
+See [docs/security/](docs/security/) for full reports.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow, code style, and PR process.
 
 ## License
 
