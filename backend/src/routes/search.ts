@@ -6,6 +6,7 @@ export const search = new Hono();
 
 // Search campaigns by title, description, category, or creator address
 search.get("/campaigns", async (c) => {
+  try {
   const prisma = getPrisma();
   const q = c.req.query("q")?.trim();
   const category = c.req.query("category");
@@ -110,10 +111,14 @@ search.get("/campaigns", async (c) => {
     pagination: { page, limit, total, pages: Math.ceil(total / limit) },
     source: "db+chain",
   });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : "Search failed" }, 500);
+  }
 });
 
 // Search users by display name or address
 search.get("/users", async (c) => {
+  try {
   const prisma = getPrisma();
   if (!prisma) return c.json({ items: [], pagination: { page: 1, limit: 20, total: 0, pages: 0 } });
 
@@ -141,4 +146,7 @@ search.get("/users", async (c) => {
   ]);
 
   return c.json({ items, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+  } catch (e) {
+    return c.json({ error: e instanceof Error ? e.message : "Search failed" }, 500);
+  }
 });

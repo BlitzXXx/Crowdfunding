@@ -47,6 +47,10 @@ export const openApiSpec = {
     { name: "health", description: "Service monitoring" },
     { name: "campaigns", description: "Campaign metadata (off-chain)" },
     { name: "ipfs", description: "Content pinning" },
+    { name: "users", description: "User profiles" },
+    { name: "search", description: "Search and discovery" },
+    { name: "blockchain", description: "On-chain data and events" },
+    { name: "monitoring", description: "Service health and metrics" },
   ],
   paths: {
     "/health": {
@@ -219,6 +223,169 @@ export const openApiSpec = {
           "400": errorResponse,
           "413": errorResponse,
           "503": errorResponse,
+        },
+      },
+    },
+    "/api/v1/users": {
+      get: {
+        tags: ["users"],
+        summary: "List user profiles",
+        parameters: [
+          { name: "q", in: "query", schema: { type: "string" }, description: "Search by name or address" },
+          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", default: 20, maximum: 50 } },
+        ],
+        responses: {
+          "200": { description: "Paginated user profiles" },
+          "503": errorResponse,
+        },
+      },
+      post: {
+        tags: ["users"],
+        summary: "Create or update user profile",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["address"],
+                properties: {
+                  address: { type: "string", pattern: "^0x[a-fA-F0-9]{40}$" },
+                  displayName: { type: "string", minLength: 1, maxLength: 50 },
+                  bio: { type: "string", maxLength: 500 },
+                  avatarUrl: { type: "string", format: "uri" },
+                  websiteUrl: { type: "string", format: "uri" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "201": { description: "Profile created" },
+          "400": errorResponse,
+          "503": errorResponse,
+        },
+      },
+    },
+    "/api/v1/users/{address}": {
+      parameters: [
+        { name: "address", in: "path", required: true, schema: { type: "string", pattern: "^0x[a-fA-F0-9]{40}$" } },
+      ],
+      get: {
+        tags: ["users"],
+        summary: "Get profile by wallet address",
+        responses: {
+          "200": { description: "User profile" },
+          "404": errorResponse,
+          "503": errorResponse,
+        },
+      },
+      put: {
+        tags: ["users"],
+        summary: "Update user profile",
+        responses: {
+          "200": { description: "Updated profile" },
+          "404": errorResponse,
+          "503": errorResponse,
+        },
+      },
+      patch: {
+        tags: ["users"],
+        summary: "Partial update of user profile",
+        responses: {
+          "200": { description: "Updated profile" },
+          "404": errorResponse,
+          "503": errorResponse,
+        },
+      },
+      delete: {
+        tags: ["users"],
+        summary: "Delete user profile",
+        responses: {
+          "204": { description: "Deleted" },
+          "404": errorResponse,
+          "503": errorResponse,
+        },
+      },
+    },
+    "/api/v1/search/campaigns": {
+      get: {
+        tags: ["search"],
+        summary: "Search and filter campaigns",
+        parameters: [
+          { name: "q", in: "query", schema: { type: "string" }, description: "Search text" },
+          { name: "category", in: "query", schema: { type: "string" } },
+          { name: "state", in: "query", schema: { type: "string", enum: ["active", "successful", "failed", "cancelled"] } },
+          { name: "sort", in: "query", schema: { type: "string", enum: ["newest", "raised", "progress", "ending"] } },
+          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
+        ],
+        responses: {
+          "200": { description: "Search results" },
+          "500": errorResponse,
+        },
+      },
+    },
+    "/api/v1/blockchain/status": {
+      get: {
+        tags: ["blockchain"],
+        summary: "Blockchain connection status",
+        responses: {
+          "200": { description: "Chain connected" },
+          "503": errorResponse,
+        },
+      },
+    },
+    "/api/v1/blockchain/campaigns": {
+      get: {
+        tags: ["blockchain"],
+        summary: "List all on-chain campaigns",
+        responses: {
+          "200": { description: "Campaign list" },
+          "500": errorResponse,
+        },
+      },
+    },
+    "/api/v1/blockchain/events": {
+      get: {
+        tags: ["blockchain"],
+        summary: "Recent on-chain events",
+        parameters: [
+          { name: "fromBlock", in: "query", schema: { type: "string" } },
+          { name: "toBlock", in: "query", schema: { type: "string" } },
+        ],
+        responses: {
+          "200": { description: "Event list" },
+          "500": errorResponse,
+        },
+      },
+    },
+    "/api/v1/blockchain/stats": {
+      get: {
+        tags: ["blockchain"],
+        summary: "Platform statistics",
+        responses: {
+          "200": { description: "Aggregated stats" },
+          "500": errorResponse,
+        },
+      },
+    },
+    "/api/v1/monitoring": {
+      get: {
+        tags: ["monitoring"],
+        summary: "Comprehensive service health",
+        responses: {
+          "200": { description: "Health status with per-service checks" },
+        },
+      },
+    },
+    "/api/v1/monitoring/metrics": {
+      get: {
+        tags: ["monitoring"],
+        summary: "Prometheus-compatible metrics",
+        responses: {
+          "200": { description: "Metrics in text/plain format" },
         },
       },
     },
